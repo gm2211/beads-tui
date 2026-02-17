@@ -258,6 +258,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
     TITLE = "Beads TUI"
     CSS_PATH = "styles/app.tcss"
     ENABLE_COMMAND_PALETTE = False
+    CTRL_C_EXIT = True
 
     BINDINGS = [
         Binding("q", "quit", "Quit", priority=True),
