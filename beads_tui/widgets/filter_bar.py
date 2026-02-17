@@ -20,12 +20,12 @@ class FilterBar(Widget):
     DEFAULT_CSS = """
     FilterBar {
         dock: top;
-        height: auto;
+        height: 5;
         padding: 0 1;
     }
 
     FilterBar #filter-bar {
-        height: auto;
+        height: 100%;
         width: 100%;
     }
 

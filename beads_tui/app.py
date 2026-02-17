@@ -8,7 +8,7 @@ from typing import Callable
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.widgets import DataTable, Footer, Header
+from textual.widgets import DataTable, Header
 from textual import on, work
 from rich.text import Text
 
@@ -243,6 +243,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
 
     TITLE = "Beads TUI"
     CSS_PATH = "styles/app.tcss"
+    ENABLE_COMMAND_PALETTE = False
 
     BINDINGS = [
         Binding("q", "quit", "Quit", priority=True),
@@ -288,7 +289,6 @@ class BeadsTuiApp(LiveReloadMixin, App):
         yield FilterBar()
         yield DataTable(id="issue-table", cursor_type="row")
         yield StatusBar()
-        yield Footer()
 
     def on_mount(self) -> None:
         try:
