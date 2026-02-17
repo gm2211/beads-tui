@@ -425,7 +425,7 @@ Button.-success:hover {
 
 #filter-bar {
     width: 100%;
-    height: 3;
+    height: auto;
     layout: horizontal;
     background: #181825;
     padding: 0 1;

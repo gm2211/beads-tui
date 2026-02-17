@@ -340,7 +340,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         if self.client is None:
             return
         try:
-            issues = await self.client.list_issues(all_=self._show_all)
+            issues = await self.client.list_issues(all_=True)
         except BdError:
             issues = []
         self._issues = issues
@@ -353,7 +353,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         if self.client is None:
             return
         try:
-            new_issues = await self.client.list_issues(all_=self._show_all)
+            new_issues = await self.client.list_issues(all_=True)
         except BdError:
             return
 
@@ -398,6 +398,10 @@ class BeadsTuiApp(LiveReloadMixin, App):
         """Filter self._issues into self._filtered_issues and sort."""
         filtered = list(self._issues)
         f = self._current_filters
+
+        # Default view: hide closed issues unless show_all or explicit status filter
+        if not self._show_all and not f.get("status"):
+            filtered = [i for i in filtered if i.status != "closed"]
 
         # Text search
         search = f.get("search")
