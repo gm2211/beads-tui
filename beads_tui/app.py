@@ -256,8 +256,6 @@ class BeadsTuiApp(LiveReloadMixin, App):
         Binding("enter", "select_issue", "Open", show=False),
         Binding("A", "toggle_all", "Toggle All", key_display="A"),
         Binding("numbersign", "column_config", "Columns", key_display="#"),
-        Binding("less_than_sign", "move_col_left", "Col Left", key_display="<", show=False),
-        Binding("greater_than_sign", "move_col_right", "Col Right", key_display=">", show=False),
         Binding("p", "quick_priority", "Priority", show=False),
         Binding("s", "quick_status", "Status", show=False),
         Binding("x", "quick_close", "Close", show=False),
@@ -445,9 +443,23 @@ class BeadsTuiApp(LiveReloadMixin, App):
 
     def _populate_table(self) -> None:
         table = self.query_one("#issue-table", DataTable)
+        # Save current selection
+        selected_id = None
+        if table.row_count > 0:
+            try:
+                row_key, _ = table.coordinate_to_cell_key(table.cursor_coordinate)
+                selected_id = str(row_key.value)
+            except Exception:
+                pass
         table.clear()
         for issue in self._filtered_issues:
             table.add_row(*self._get_row_cells(issue), key=issue.id)
+        # Restore cursor to the same issue
+        if selected_id:
+            for idx, issue in enumerate(self._filtered_issues):
+                if issue.id == selected_id:
+                    table.move_cursor(row=idx)
+                    break
 
     def _update_status_bar(self) -> None:
         status_bar = self.query_one(StatusBar)
@@ -575,30 +587,6 @@ class BeadsTuiApp(LiveReloadMixin, App):
 
         self.push_screen(ColumnConfigScreen(self._active_columns), callback=_on_dismiss)
 
-    def action_move_col_left(self) -> None:
-        table = self.query_one("#issue-table", DataTable)
-        col_idx = table.cursor_coordinate.column
-        if col_idx <= 0 or col_idx >= len(self._active_columns):
-            return
-        self._active_columns[col_idx], self._active_columns[col_idx - 1] = (
-            self._active_columns[col_idx - 1],
-            self._active_columns[col_idx],
-        )
-        self._rebuild_columns()
-        self._populate_table()
-
-    def action_move_col_right(self) -> None:
-        table = self.query_one("#issue-table", DataTable)
-        col_idx = table.cursor_coordinate.column
-        if col_idx < 0 or col_idx >= len(self._active_columns) - 1:
-            return
-        self._active_columns[col_idx], self._active_columns[col_idx + 1] = (
-            self._active_columns[col_idx + 1],
-            self._active_columns[col_idx],
-        )
-        self._rebuild_columns()
-        self._populate_table()
-
     # ------------------------------------------------------------------
     # Quick-edit actions (from list view)
     # ------------------------------------------------------------------
@@ -614,6 +602,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
                 return issue
         return None
 
+    @work
     async def action_quick_priority(self) -> None:
         issue = self._get_selected_issue()
         if not issue or not self.client:
@@ -628,6 +617,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
             except BdError as e:
                 self.notify(f"Error: {e}", severity="error")
 
+    @work
     async def action_quick_status(self) -> None:
         issue = self._get_selected_issue()
         if not issue or not self.client:

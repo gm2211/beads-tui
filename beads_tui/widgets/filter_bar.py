@@ -129,6 +129,7 @@ class FilterBar(Widget):
     def on_input_changed(self, event: Input.Changed) -> None:
         if event.input.id == "search-input":
             self._search_timer.reset()
+            self._search_timer.resume()
 
     def on_select_changed(self, event: Select.Changed) -> None:
         self._post_filters_changed()
