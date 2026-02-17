@@ -74,6 +74,20 @@ def _short_date(dt: str) -> str:
     return dt[:10]
 
 
+def _deps_cell(issue: Issue) -> Text:
+    """Show dependency counts with directional indicators."""
+    parts = []
+    if issue.dependency_count > 0:
+        parts.append(Text(f"\u2192{issue.dependency_count}", style="dodger_blue"))
+    if issue.dependent_count > 0:
+        if parts:
+            parts.append(Text(" "))
+        parts.append(Text(f"\u2190{issue.dependent_count}", style="dark_orange"))
+    if not parts:
+        return Text("")
+    return Text.assemble(*parts)
+
+
 # ---------------------------------------------------------------------------
 # Column registry (data-driven)
 # ---------------------------------------------------------------------------
@@ -96,7 +110,7 @@ AVAILABLE_COLUMNS: dict[str, ColumnDef] = {
     "updated": ColumnDef(key="updated", label="Updated", getter=lambda i: Text(_short_date(i.updated_at)), width=12),
     "created": ColumnDef(key="created", label="Created", getter=lambda i: Text(_short_date(i.created_at)), width=12),
     "labels": ColumnDef(key="labels", label="Labels", getter=lambda i: Text(", ".join(i.labels)), width=15),
-    "deps": ColumnDef(key="deps", label="Deps", getter=lambda i: Text(str(i.dependency_count)), width=5),
+    "deps": ColumnDef(key="deps", label="Deps", getter=_deps_cell, width=8),
 }
 
 DEFAULT_COLUMNS = ["id", "priority", "status", "type", "title", "updated"]
