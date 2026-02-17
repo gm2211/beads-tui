@@ -54,6 +54,7 @@ class DetailScreen(Screen):
         Binding("a", "change_assignee", "Assignee"),
         Binding("e", "edit_title", "Edit title"),
         Binding("d", "edit_description", "Description"),
+        Binding("numbersign", "noop", "#Columns", show=False),
     ]
 
     def __init__(self, issue_id: str):
@@ -211,6 +212,9 @@ class DetailScreen(Screen):
 
     def action_go_back(self) -> None:
         self.app.pop_screen()
+
+    def action_noop(self) -> None:
+        pass
 
     @work
     async def action_change_priority(self) -> None:
