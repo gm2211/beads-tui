@@ -36,10 +36,14 @@ class FilterBar(Widget):
 
     FilterBar Select {
         width: 18;
+        margin: 0 0 0 1;
     }
 
     FilterBar #clear-filters {
         min-width: 10;
+        height: 3;
+        border: solid #44447a;
+        margin: 0 0 0 1;
     }
     """
 
@@ -158,9 +162,9 @@ class FilterBar(Widget):
     def clear_all(self) -> None:
         """Reset all filters to their defaults and post FiltersChanged."""
         self.query_one("#search-input", Input).value = ""
-        self.query_one("#status-filter", Select).value = Select.BLANK
-        self.query_one("#priority-filter", Select).value = Select.BLANK
-        self.query_one("#type-filter", Select).value = Select.BLANK
+        self.query_one("#status-filter", Select).clear()
+        self.query_one("#priority-filter", Select).clear()
+        self.query_one("#type-filter", Select).clear()
         self._post_filters_changed()
 
     def get_filters(self) -> dict[str, str | None]:
@@ -172,13 +176,13 @@ class FilterBar(Widget):
         search_val = self.query_one("#search-input", Input).value.strip()
 
         status_sel = self.query_one("#status-filter", Select)
-        status_val = status_sel.value if status_sel.value != Select.BLANK else ""
+        status_val = "" if status_sel.is_blank() else status_sel.value
 
         priority_sel = self.query_one("#priority-filter", Select)
-        priority_val = priority_sel.value if priority_sel.value != Select.BLANK else ""
+        priority_val = "" if priority_sel.is_blank() else priority_sel.value
 
         type_sel = self.query_one("#type-filter", Select)
-        type_val = type_sel.value if type_sel.value != Select.BLANK else ""
+        type_val = "" if type_sel.is_blank() else type_sel.value
 
         return {
             "search": search_val,
