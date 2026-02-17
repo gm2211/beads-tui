@@ -14,17 +14,21 @@ HELP_TEXT = """\
 [bold underline]Global[/bold underline]
   [bold]?[/bold]           Show this help
   [bold]q[/bold]           Quit application
-  [bold]/[/bold]           Focus search
+  [bold]/[/bold]           Focus search / filter bar
   [bold]r[/bold]           Refresh issues
   [bold]c[/bold]           Create new issue
+  [bold]A[/bold]           Toggle show all / open only
 
 [bold underline]Issue List[/bold underline]
   [bold]j / Down[/bold]    Move down
   [bold]k / Up[/bold]      Move up
   [bold]Enter[/bold]       Open issue detail
-  [bold]p[/bold]           Change priority
-  [bold]s[/bold]           Change status
-  [bold]x[/bold]           Close issue
+  [bold]Click header[/bold] Sort by column (click again to reverse)
+
+[bold underline]Columns[/bold underline]
+  [bold]#[/bold]           Open column configuration
+  [bold]<[/bold]           Move column left
+  [bold]>[/bold]           Move column right
 
 [bold underline]Detail View[/bold underline]
   [bold]Escape[/bold]      Back to list
