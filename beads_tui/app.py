@@ -313,9 +313,8 @@ class BeadsTuiApp(LiveReloadMixin, App):
     TITLE = "Beads TUI"
     CSS_PATH = "styles/app.tcss"
     ENABLE_COMMAND_PALETTE = False
-    CTRL_C_EXIT = True
-
     BINDINGS = [
+        Binding("ctrl+c", "quit_guard", "Quit", show=False, priority=True),
         Binding("q", "quit", "Quit", priority=True),
         Binding("question_mark", "help", "Help", key_display="?"),
         Binding("c", "create", "Create"),
@@ -349,6 +348,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self._active_columns: list[str] = list(columns or DEFAULT_COLUMNS)
         self._sort_column: str = "priority"
         self._sort_reverse: bool = False
+        self._quit_pending: bool = False
         self._current_filters: dict = {
             "search": None,
             "statuses": {"open", "in_progress"} if not show_all else None,
@@ -592,6 +592,17 @@ class BeadsTuiApp(LiveReloadMixin, App):
     # ------------------------------------------------------------------
     # Actions
     # ------------------------------------------------------------------
+
+    def action_quit_guard(self) -> None:
+        if self._quit_pending:
+            self.exit()
+        else:
+            self._quit_pending = True
+            self.notify("Press Ctrl+C again to quit", timeout=2)
+            self.set_timer(2.0, self._reset_quit_guard)
+
+    def _reset_quit_guard(self) -> None:
+        self._quit_pending = False
 
     def action_cursor_down(self) -> None:
         self.query_one("#issue-table", DataTable).action_cursor_down()
