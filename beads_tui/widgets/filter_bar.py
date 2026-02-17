@@ -5,6 +5,7 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.events import Click
 from textual.message import Message
 from textual.screen import ModalScreen
 from textual.timer import Timer
@@ -86,6 +87,10 @@ class StatusFilterModal(ModalScreen[set[str] | None]):
                     selected.add(value)
             self.dismiss(selected)
         elif bid == "status-cancel-btn":
+            self.dismiss(None)
+
+    def on_click(self, event: Click) -> None:
+        if self is event.widget:
             self.dismiss(None)
 
     def action_cancel(self) -> None:
@@ -189,6 +194,12 @@ class FilterBar(Widget):
         if event.input.id == "search-input":
             self._search_timer.reset()
             self._search_timer.resume()
+
+    def on_descendant_focus(self, event) -> None:
+        """Auto-expand Select widgets when they receive focus (avoids double-click)."""
+        widget = event.widget
+        if isinstance(widget, Select) and not widget.expanded:
+            widget.expanded = True
 
     def on_select_changed(self, event: Select.Changed) -> None:
         self._post_filters_changed()
