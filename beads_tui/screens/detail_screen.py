@@ -175,16 +175,53 @@ class DetailScreen(Screen):
         # Dependencies
         deps_w = self.query_one("#detail-deps", Static)
         dep_parts: list[Text | str] = []
+
+        _STATUS_SYMBOLS: dict[str, tuple[str, str]] = {
+            "open": ("\u25cb", "green"),
+            "in_progress": ("\u25d0", "cyan"),
+            "blocked": ("\u25cf", "bold red"),
+            "deferred": ("\u2744", "blue"),
+            "closed": ("\u2713", "dim"),
+        }
+
+        _PRIORITY_SHORT: dict[int, tuple[str, str]] = {
+            0: ("P0", "bold red"),
+            1: ("P1", "dark_orange"),
+            2: ("P2", "yellow"),
+            3: ("P3", "dodger_blue"),
+            4: ("P4", "dim"),
+        }
+
+        def _dep_line(arrow: str, dep) -> Text:  # type: ignore[no-untyped-def]
+            dep_id = dep.id or dep.depends_on_id if hasattr(dep, "depends_on_id") else dep.id or dep.issue_id
+            is_closed = dep.status == "closed"
+            dim = "dim " if is_closed else ""
+
+            sym, sym_style = _STATUS_SYMBOLS.get(dep.status, ("?", ""))
+            pri_label, pri_style = _PRIORITY_SHORT.get(dep.priority, ("P?", ""))
+
+            return Text.assemble(
+                Text(f"  {arrow} ", style=dim + "default"),
+                Text(sym, style=dim + sym_style),
+                Text(" "),
+                Text(pri_label, style=dim + pri_style),
+                Text(" "),
+                Text(dep_id, style=dim + "bold #89b4fa"),
+                Text("  "),
+                Text(dep.title or "", style=dim + "default"),
+                Text("\n"),
+            )
+
         if issue.dependencies:
             dep_parts.append(Text("\n Dependencies (blocks)\n", style="bold underline"))
             dep_parts.append("\n")
             for dep in issue.dependencies:
-                dep_parts.append(f"  \u2192 {dep.id or dep.depends_on_id}  {dep.title}\n")
+                dep_parts.append(_dep_line("\u2192", dep))
         if issue.dependents:
             dep_parts.append(Text("\n Blocked by\n", style="bold underline"))
             dep_parts.append("\n")
             for dep in issue.dependents:
-                dep_parts.append(f"  \u2190 {dep.id or dep.issue_id}  {dep.title}\n")
+                dep_parts.append(_dep_line("\u2190", dep))
         if dep_parts:
             deps_w.update(Text.assemble(*dep_parts))
         else:
