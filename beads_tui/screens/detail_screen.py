@@ -5,8 +5,9 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
-from textual.screen import Screen
-from textual.widgets import Footer, Header, Label, Static
+from textual.screen import ModalScreen, Screen
+from textual.widgets import Footer, Header, Label, OptionList, Static
+from textual.widgets.option_list import Option
 from textual import work
 from rich.text import Text
 
@@ -29,6 +30,53 @@ _STATUS_LABELS: dict[str, tuple[str, str]] = {
     "deferred": ("\u2744 Deferred", "white on blue"),
     "closed": ("\u2713 Closed", "white on grey37"),
 }
+
+
+class DependencyPicker(ModalScreen[str | None]):
+    """Pick a dependency to navigate to."""
+
+    BINDINGS = [Binding("escape", "cancel", "Cancel")]
+
+    DEFAULT_CSS = """
+    DependencyPicker {
+        align: center middle;
+    }
+    DependencyPicker > #dep-picker-dialog {
+        width: 70;
+        max-width: 90%;
+        height: auto;
+        max-height: 70%;
+        background: $surface;
+        border: tall $primary;
+        padding: 1 2;
+    }
+    DependencyPicker > #dep-picker-dialog > #dep-picker-title {
+        text-align: center;
+        text-style: bold;
+        width: 100%;
+        margin-bottom: 1;
+    }
+    """
+
+    def __init__(self, deps: list[tuple[str, str, str]]):
+        # deps = list of (direction_arrow, issue_id, display_text)
+        super().__init__()
+        self._deps = deps
+
+    def compose(self) -> ComposeResult:
+        from textual.containers import Vertical
+        with Vertical(id="dep-picker-dialog"):
+            yield Label("Linked Issues", id="dep-picker-title")
+            option_list = OptionList(id="dep-options")
+            for _arrow, issue_id, display in self._deps:
+                option_list.add_option(Option(display, id=issue_id))
+            yield option_list
+
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        self.dismiss(str(event.option.id))
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
 
 
 class Badge(Static):
@@ -54,7 +102,13 @@ class DetailScreen(Screen):
         Binding("a", "change_assignee", "Assignee"),
         Binding("e", "edit_title", "Edit title"),
         Binding("d", "edit_description", "Description"),
+        Binding("g", "goto_dep", "Go to dep"),
         Binding("numbersign", "noop", "#Columns", show=False),
+        Binding("r", "noop", "Refresh", show=False),
+        Binding("slash", "noop", "Search", show=False),
+        Binding("c", "noop", "Create", show=False),
+        Binding("A", "noop", "Toggle All", show=False),
+        Binding("question_mark", "noop", "Help", show=False),
     ]
 
     def __init__(self, issue_id: str):
@@ -321,3 +375,26 @@ class DetailScreen(Screen):
             await client.update_issue(self._issue.id, description=result)
             self.notify("Description updated")
             self._load_issue()
+
+    @work
+    async def action_goto_dep(self) -> None:
+        if self._issue is None:
+            return
+        deps_list: list[tuple[str, str, str]] = []
+        for dep in (self._issue.dependencies or []):
+            dep_id = (dep.id or dep.depends_on_id) if hasattr(dep, "depends_on_id") else dep.id
+            if dep_id:
+                deps_list.append(("→", dep_id, f"→ {dep_id}  {dep.title or ''}"))
+        for dep in (self._issue.dependents or []):
+            dep_id = (dep.id or dep.issue_id) if hasattr(dep, "issue_id") else dep.id
+            if dep_id:
+                deps_list.append(("←", dep_id, f"← {dep_id}  {dep.title or ''}"))
+        if not deps_list:
+            self.notify("No linked issues")
+            return
+        if len(deps_list) == 1:
+            target_id = deps_list[0][1]
+        else:
+            target_id = await self.app.push_screen_wait(DependencyPicker(deps_list))
+        if target_id:
+            self.app.push_screen(DetailScreen(target_id))
