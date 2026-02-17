@@ -373,9 +373,31 @@ class BeadsTuiApp(LiveReloadMixin, App):
             self.client = BdClient(bd_path=self._bd_path, db_path=self._db_path)
         except BdError:
             self.client = None
+        self.WATCH_PATH = self._discover_watch_path()
         self._rebuild_columns()
         self._load_issues()
         self.start_live_reload()
+
+    def _discover_watch_path(self) -> str | None:
+        """Discover the .beads/ directory to watch for file changes.
+
+        If a db_path was provided use its parent directory (or the path itself
+        if it is already a directory).  Otherwise fall back to ``.beads/``
+        relative to the current working directory.
+        """
+        from pathlib import Path
+
+        if self._db_path:
+            p = Path(self._db_path)
+            candidate = p if p.is_dir() else p.parent
+            if candidate.exists():
+                return str(candidate)
+
+        default = Path(".beads")
+        if default.exists():
+            return str(default)
+
+        return None
 
     # ------------------------------------------------------------------
     # Column management
