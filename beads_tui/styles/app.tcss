@@ -1,10 +1,87 @@
+/* ------------------------------------------------------------------ */
+/* Beads TUI — main stylesheet                                        */
+/* ------------------------------------------------------------------ */
+
 Screen {
     background: $surface;
 }
 
-#placeholder {
+/* ---- Issue list (DataTable) --------------------------------------- */
+
+#issue-table {
     width: 100%;
     height: 1fr;
-    content-align: center middle;
+}
+
+DataTable {
+    scrollbar-color: $accent;
+    scrollbar-color-hover: $accent-lighten-1;
+}
+
+DataTable > .datatable--header {
+    background: $primary-background;
+    color: $text;
     text-style: bold;
 }
+
+DataTable > .datatable--cursor {
+    background: $accent;
+    color: $text;
+}
+
+DataTable > .datatable--hover {
+    background: $boost;
+}
+
+/* ---- Detail screen ------------------------------------------------ */
+
+#detail-scroll {
+    width: 100%;
+    height: 1fr;
+    padding: 1 2;
+}
+
+#detail-title {
+    width: 100%;
+    text-style: bold;
+    padding: 0 0 1 0;
+    color: $text;
+}
+
+#badges {
+    width: 100%;
+    height: auto;
+    padding: 0 0 1 0;
+}
+
+Badge {
+    padding: 0 1;
+    margin: 0 1 0 0;
+    height: 1;
+    min-width: 4;
+}
+
+#detail-description,
+#detail-notes,
+#detail-labels,
+#detail-deps,
+#detail-meta {
+    width: 100%;
+    padding: 0 0 0 1;
+}
+
+/* ---- Priority color classes (for future widget use) --------------- */
+
+.priority-0 { color: red; text-style: bold; }
+.priority-1 { color: darkorange; }
+.priority-2 { color: yellow; }
+.priority-3 { color: dodgerblue; }
+.priority-4 { color: $text-muted; }
+
+/* ---- Status color classes ----------------------------------------- */
+
+.status-open        { color: green; }
+.status-in-progress { color: cyan; }
+.status-blocked     { color: red; text-style: bold; }
+.status-deferred    { color: blue; }
+.status-closed      { color: $text-muted; }
