@@ -545,6 +545,38 @@ FilterBar #clear-filters {
     min-width: 8;
 }
 
+/* Sort picker modal */
+
+#sort-dialog {
+    width: 40;
+    max-width: 80%;
+    height: auto;
+    max-height: 70%;
+    background: #1e1e2e;
+    border: tall #89b4fa;
+    padding: 1 2;
+}
+
+#sort-title {
+    text-align: center;
+    text-style: bold;
+    width: 100%;
+    margin-bottom: 1;
+    color: #89b4fa;
+}
+
+#sort-buttons {
+    width: 100%;
+    height: auto;
+    align-horizontal: center;
+    margin-top: 1;
+}
+
+#sort-buttons Button {
+    margin: 0 1;
+    min-width: 10;
+}
+
 
 /* ---------------------------------------------------------------------------
    Help overlay
