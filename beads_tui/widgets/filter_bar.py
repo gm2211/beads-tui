@@ -195,6 +195,32 @@ class FilterBar(Widget):
             self._search_timer.reset()
             self._search_timer.resume()
 
+    def on_click(self, event: Click) -> None:
+        """Expand Select on first click by deferring expansion."""
+        widget = event.widget
+        while widget is not None and widget is not self:
+            if isinstance(widget, Select):
+                if not widget.expanded:
+                    self.set_timer(
+                        0.05,
+                        lambda w=widget: setattr(w, "expanded", True)
+                        if not w.expanded
+                        else None,
+                    )
+                return
+            widget = widget.parent
+
+    def on_key(self, event) -> None:
+        """Handle Escape to unfocus search bar."""
+        if event.key == "escape":
+            focused = self.screen.focused
+            if focused is not None and focused.id == "search-input":
+                try:
+                    self.screen.query_one("#issue-table").focus()
+                except Exception:
+                    self.screen.focus_next()
+                event.stop()
+
     def on_select_changed(self, event: Select.Changed) -> None:
         self._post_filters_changed()
 
