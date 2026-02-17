@@ -212,6 +212,7 @@ class DetailScreen(Screen):
     def action_go_back(self) -> None:
         self.app.pop_screen()
 
+    @work
     async def action_change_priority(self) -> None:
         if self._issue is None:
             return
@@ -223,6 +224,7 @@ class DetailScreen(Screen):
             self.notify(f"Priority updated to P{result}")
             self._load_issue()
 
+    @work
     async def action_change_status(self) -> None:
         if self._issue is None:
             return
@@ -237,6 +239,7 @@ class DetailScreen(Screen):
             self.notify(f"Status updated to {result}")
             self._load_issue()
 
+    @work
     async def action_change_assignee(self) -> None:
         if self._issue is None:
             return
@@ -250,6 +253,7 @@ class DetailScreen(Screen):
             self.notify("Assignee updated")
             self._load_issue()
 
+    @work
     async def action_edit_title(self) -> None:
         if self._issue is None:
             return
@@ -263,6 +267,7 @@ class DetailScreen(Screen):
             self.notify("Title updated")
             self._load_issue()
 
+    @work
     async def action_edit_description(self) -> None:
         if self._issue is None:
             return
