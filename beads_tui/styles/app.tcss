@@ -428,7 +428,7 @@ Button.-success:hover {
     height: 100%;
     layout: horizontal;
     background: #181825;
-    padding: 0 1;
+    padding: 1 1 0 1;
     border-bottom: solid #333350;
 }
 

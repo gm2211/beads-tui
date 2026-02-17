@@ -32,10 +32,12 @@ class FilterBar(Widget):
     FilterBar #search-input {
         width: 1fr;
         min-width: 20;
+        height: 3;
     }
 
     FilterBar Select {
         width: 18;
+        height: 3;
         margin: 0 0 0 1;
     }
 
