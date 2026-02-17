@@ -25,10 +25,9 @@ HELP_TEXT = """\
   [bold]Enter[/bold]       Open issue detail
   [bold]Click header[/bold] Sort by column (click again to reverse)
 
-[bold underline]Columns[/bold underline]
-  [bold]#[/bold]           Open column configuration
-  [bold]<[/bold]           Move column left
-  [bold]>[/bold]           Move column right
+[bold underline]Columns & Sorting[/bold underline]
+  [bold]o[/bold]           Sort picker
+  [bold]#[/bold]           Column visibility
 
 [bold underline]Detail View[/bold underline]
   [bold]Escape[/bold]      Back to list
