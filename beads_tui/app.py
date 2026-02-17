@@ -165,23 +165,6 @@ class SortPicker(ModalScreen[tuple[str, bool] | None]):
     SortPicker {
         align: center middle;
     }
-
-    SortPicker > #sort-dialog {
-        width: 40;
-        max-width: 80%;
-        height: auto;
-        max-height: 70%;
-        background: $surface;
-        border: tall $primary;
-        padding: 1 2;
-    }
-
-    SortPicker > #sort-dialog > #sort-title {
-        text-align: center;
-        text-style: bold;
-        width: 100%;
-        margin-bottom: 1;
-    }
     """
 
     def __init__(
@@ -192,29 +175,52 @@ class SortPicker(ModalScreen[tuple[str, bool] | None]):
     ) -> None:
         super().__init__()
         self._columns = columns
-        self._current_col = current_col
-        self._current_reverse = current_reverse
+        self._selected_col = current_col
+        self._selected_reverse = current_reverse
 
     def compose(self) -> ComposeResult:
         with Vertical(id="sort-dialog"):
             yield Label("Sort By", id="sort-title")
             option_list = OptionList(id="sort-options")
             for key, label in self._columns.items():
-                if key == self._current_col:
-                    arrow = "\u25bc" if self._current_reverse else "\u25b2"
-                    display = f"{label} {arrow}"
-                else:
-                    display = label
-                option_list.add_option(Option(display, id=key))
+                option_list.add_option(Option(self._option_label(key, label), id=key))
             yield option_list
+            with Horizontal(id="sort-buttons"):
+                yield Button("Apply", variant="primary", id="sort-apply-btn")
+                yield Button("Cancel", id="sort-cancel-btn")
+
+    def _option_label(self, key: str, label: str) -> str:
+        if key == self._selected_col:
+            arrow = "\u25bc" if self._selected_reverse else "\u25b2"
+            return f"{label} {arrow}"
+        return label
+
+    def _refresh_options(self) -> None:
+        """Re-render option labels to reflect current selection."""
+        opt_list = self.query_one("#sort-options", OptionList)
+        opt_list.clear_options()
+        for key, label in self._columns.items():
+            opt_list.add_option(Option(self._option_label(key, label), id=key))
 
     @on(OptionList.OptionSelected)
     def _on_option_selected(self, event: OptionList.OptionSelected) -> None:
         col_key = str(event.option.id)
-        if col_key == self._current_col:
-            self.dismiss((col_key, not self._current_reverse))
+        if col_key == self._selected_col:
+            self._selected_reverse = not self._selected_reverse
         else:
-            self.dismiss((col_key, False))
+            self._selected_col = col_key
+            self._selected_reverse = False
+        self._refresh_options()
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "sort-apply-btn":
+            self.dismiss((self._selected_col, self._selected_reverse))
+        elif event.button.id == "sort-cancel-btn":
+            self.dismiss(None)
+
+    def on_click(self, event) -> None:
+        if self is event.widget:
+            self.dismiss(None)
 
     def action_cancel(self) -> None:
         self.dismiss(None)
