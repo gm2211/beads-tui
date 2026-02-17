@@ -81,6 +81,9 @@ class BeadsTuiApp(App):
         Binding("j", "cursor_down", "Down", show=False),
         Binding("k", "cursor_up", "Up", show=False),
         Binding("enter", "select_issue", "Open", show=False),
+        Binding("p", "quick_priority", "Priority", show=False),
+        Binding("s", "quick_status", "Status", show=False),
+        Binding("x", "quick_close", "Close", show=False),
     ]
 
     def __init__(self, bd_path: str | None = None, db_path: str | None = None):
@@ -176,3 +179,52 @@ class BeadsTuiApp(App):
 
     def action_search(self) -> None:
         self.notify("Search: not yet implemented", title="TODO")
+
+    # ------------------------------------------------------------------
+    # Quick-edit actions (from list view)
+    # ------------------------------------------------------------------
+
+    def _get_selected_issue(self) -> Issue | None:
+        """Return the Issue for the currently highlighted row, or None."""
+        table = self.query_one("#issue-table", DataTable)
+        if table.row_count == 0:
+            return None
+        row_key, _ = table.coordinate_to_cell_key(table.cursor_coordinate)
+        issue_id = str(row_key)
+        for issue in self._issues:
+            if issue.id == issue_id:
+                return issue
+        return None
+
+    async def action_quick_priority(self) -> None:
+        issue = self._get_selected_issue()
+        if not issue:
+            return
+        from .widgets.priority_picker import PriorityPicker
+        result = await self.push_screen_wait(PriorityPicker(current=issue.priority))
+        if result is not None:
+            await self.client.update_issue(issue.id, priority=result)
+            self.notify(f"P{result} set on {issue.id}")
+            self._load_issues()
+
+    async def action_quick_status(self) -> None:
+        issue = self._get_selected_issue()
+        if not issue:
+            return
+        from .widgets.status_picker import StatusPicker
+        result = await self.push_screen_wait(StatusPicker(current=issue.status))
+        if result is not None:
+            if result == "closed":
+                await self.client.close_issue(issue.id)
+            else:
+                await self.client.update_issue(issue.id, status=result)
+            self.notify(f"{result} set on {issue.id}")
+            self._load_issues()
+
+    async def action_quick_close(self) -> None:
+        issue = self._get_selected_issue()
+        if not issue:
+            return
+        await self.client.close_issue(issue.id)
+        self.notify(f"Closed {issue.id}")
+        self._load_issues()

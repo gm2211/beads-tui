@@ -53,6 +53,7 @@ class DetailScreen(Screen):
         Binding("s", "change_status", "Status"),
         Binding("a", "change_assignee", "Assignee"),
         Binding("e", "edit_title", "Edit title"),
+        Binding("d", "edit_description", "Description"),
     ]
 
     def __init__(self, issue_id: str):
@@ -211,14 +212,66 @@ class DetailScreen(Screen):
     def action_go_back(self) -> None:
         self.app.pop_screen()
 
-    def action_change_priority(self) -> None:
-        self.notify("Change priority: not yet implemented", title="TODO")
+    async def action_change_priority(self) -> None:
+        if self._issue is None:
+            return
+        from ..widgets.priority_picker import PriorityPicker
+        result = await self.app.push_screen_wait(PriorityPicker(current=self._issue.priority))
+        if result is not None:
+            client: BdClient = self.app.client  # type: ignore[attr-defined]
+            await client.update_issue(self._issue.id, priority=result)
+            self.notify(f"Priority updated to P{result}")
+            self._load_issue()
 
-    def action_change_status(self) -> None:
-        self.notify("Change status: not yet implemented", title="TODO")
+    async def action_change_status(self) -> None:
+        if self._issue is None:
+            return
+        from ..widgets.status_picker import StatusPicker
+        result = await self.app.push_screen_wait(StatusPicker(current=self._issue.status))
+        if result is not None:
+            client: BdClient = self.app.client  # type: ignore[attr-defined]
+            if result == "closed":
+                await client.close_issue(self._issue.id)
+            else:
+                await client.update_issue(self._issue.id, status=result)
+            self.notify(f"Status updated to {result}")
+            self._load_issue()
 
-    def action_change_assignee(self) -> None:
-        self.notify("Change assignee: not yet implemented", title="TODO")
+    async def action_change_assignee(self) -> None:
+        if self._issue is None:
+            return
+        from ..widgets.text_input_modal import TextInputModal
+        result = await self.app.push_screen_wait(
+            TextInputModal("Assignee", self._issue.assignee)
+        )
+        if result is not None:
+            client: BdClient = self.app.client  # type: ignore[attr-defined]
+            await client.update_issue(self._issue.id, assignee=result)
+            self.notify("Assignee updated")
+            self._load_issue()
 
-    def action_edit_title(self) -> None:
-        self.notify("Edit title: not yet implemented", title="TODO")
+    async def action_edit_title(self) -> None:
+        if self._issue is None:
+            return
+        from ..widgets.text_input_modal import TextInputModal
+        result = await self.app.push_screen_wait(
+            TextInputModal("Title", self._issue.title)
+        )
+        if result is not None:
+            client: BdClient = self.app.client  # type: ignore[attr-defined]
+            await client.update_issue(self._issue.id, title=result)
+            self.notify("Title updated")
+            self._load_issue()
+
+    async def action_edit_description(self) -> None:
+        if self._issue is None:
+            return
+        from ..widgets.text_input_modal import TextInputModal
+        result = await self.app.push_screen_wait(
+            TextInputModal("Description", self._issue.description, multiline=True)
+        )
+        if result is not None:
+            client: BdClient = self.app.client  # type: ignore[attr-defined]
+            await client.update_issue(self._issue.id, description=result)
+            self.notify("Description updated")
+            self._load_issue()
