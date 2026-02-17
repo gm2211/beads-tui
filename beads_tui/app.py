@@ -292,8 +292,11 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self._active_columns: list[str] = list(columns or DEFAULT_COLUMNS)
         self._sort_column: str = "priority"
         self._sort_reverse: bool = False
-        self._current_filters: dict[str, str | None] = {
-            "search": None, "status": None, "priority": None, "type": None,
+        self._current_filters: dict = {
+            "search": None,
+            "statuses": {"open", "in_progress"} if not show_all else None,
+            "priority": None,
+            "type": None,
         }
 
     def compose(self) -> ComposeResult:
@@ -411,9 +414,12 @@ class BeadsTuiApp(LiveReloadMixin, App):
         filtered = list(self._issues)
         f = self._current_filters
 
-        # Default view: hide closed issues unless show_all or explicit status filter
-        if not self._show_all and not f.get("status"):
-            filtered = [i for i in filtered if i.status != "closed"]
+        # Status filter (multi-select)
+        # statuses=None means "All" (show everything)
+        # statuses=set(...) means only those statuses
+        statuses: set[str] | None = f.get("statuses")
+        if statuses is not None:
+            filtered = [i for i in filtered if i.status in statuses]
 
         # Text search
         search = f.get("search")
@@ -427,11 +433,6 @@ class BeadsTuiApp(LiveReloadMixin, App):
                 or q in (i.assignee or "").lower()
                 or q in (i.issue_type or "").lower()
             ]
-
-        # Status filter
-        status = f.get("status")
-        if status:
-            filtered = [i for i in filtered if i.status == status]
 
         # Priority filter
         priority = f.get("priority")
@@ -481,9 +482,16 @@ class BeadsTuiApp(LiveReloadMixin, App):
         status_bar.total_count = len(self._issues)
         now = datetime.datetime.now().strftime("%H:%M:%S")
         status_bar.set_refresh_time(now)
-        has_filter = any(v for v in self._current_filters.values())
+        has_filter = any(
+            v for k, v in self._current_filters.items()
+            if k == "statuses" and v is not None or k != "statuses" and v
+        )
         status_bar.filter_active = has_filter
-        view = "All Issues" if self._show_all else "Open Issues"
+        statuses = self._current_filters.get("statuses")
+        if statuses is None:
+            view = "All Issues"
+        else:
+            view = "Filtered"
         status_bar.view_name = view
 
     # ------------------------------------------------------------------
@@ -494,7 +502,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
     def _on_filters_changed(self, event: FilterBar.FiltersChanged) -> None:
         self._current_filters = {
             "search": event.search or None,
-            "status": event.status,
+            "statuses": event.statuses,
             "priority": event.priority,
             "type": event.type_,
         }
@@ -585,9 +593,13 @@ class BeadsTuiApp(LiveReloadMixin, App):
 
     def action_toggle_all(self) -> None:
         self._show_all = not self._show_all
-        label = "all" if self._show_all else "open"
-        self.notify(f"Showing {label} issues")
-        self._load_issues()
+        filter_bar = self.query_one(FilterBar)
+        if self._show_all:
+            filter_bar.set_statuses({"open", "in_progress", "blocked", "deferred", "closed"})
+            self.notify("Showing all issues")
+        else:
+            filter_bar.set_statuses({"open", "in_progress"})
+            self.notify("Showing open issues")
 
     def action_column_config(self) -> None:
         self.pause_refresh()
