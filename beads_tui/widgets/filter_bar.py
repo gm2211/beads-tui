@@ -54,31 +54,6 @@ class StatusFilterModal(ModalScreen[set[str] | None]):
     StatusFilterModal {
         align: center middle;
     }
-    StatusFilterModal > #status-modal {
-        width: 40;
-        max-width: 90%;
-        height: auto;
-        max-height: 70%;
-        background: $surface;
-        border: tall $primary;
-        padding: 1 2;
-    }
-    StatusFilterModal > #status-modal > #status-modal-title {
-        text-align: center;
-        text-style: bold;
-        width: 100%;
-        margin-bottom: 1;
-    }
-    StatusFilterModal > #status-modal > #status-modal-buttons {
-        width: 100%;
-        height: auto;
-        align-horizontal: center;
-        margin-top: 1;
-    }
-    StatusFilterModal > #status-modal > #status-modal-buttons Button {
-        margin: 0 1;
-        min-width: 10;
-    }
     """
 
     def __init__(self, current: set[str]) -> None:
@@ -138,44 +113,6 @@ class FilterBar(Widget):
     FilterBar #filter-bar {
         height: 100%;
         width: 100%;
-    }
-
-    FilterBar #search-input {
-        width: 1fr;
-        min-width: 20;
-        height: 3;
-    }
-
-    FilterBar Select {
-        width: 18;
-        height: 3;
-        margin: 0 0 0 1;
-        border: none;
-    }
-
-    FilterBar #status-filter-btn {
-        min-width: 18;
-        max-width: 30;
-        height: 3;
-        margin: 0 0 0 1;
-        background: #282840;
-        color: #cdd6f4;
-        border: none;
-        text-align: center;
-        content-align: center middle;
-    }
-
-    FilterBar #status-filter-btn:hover {
-        background: #333350;
-    }
-
-    FilterBar #clear-filters {
-        min-width: 10;
-        height: 3;
-        border: solid #44447a;
-        margin: 0 0 0 1;
-        content-align: center middle;
-        text-align: center;
     }
     """
 
