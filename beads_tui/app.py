@@ -443,9 +443,23 @@ class BeadsTuiApp(LiveReloadMixin, App):
 
     def _populate_table(self) -> None:
         table = self.query_one("#issue-table", DataTable)
+        # Save current selection
+        selected_id = None
+        if table.row_count > 0:
+            try:
+                row_key, _ = table.coordinate_to_cell_key(table.cursor_coordinate)
+                selected_id = str(row_key.value)
+            except Exception:
+                pass
         table.clear()
         for issue in self._filtered_issues:
             table.add_row(*self._get_row_cells(issue), key=issue.id)
+        # Restore cursor to the same issue
+        if selected_id:
+            for idx, issue in enumerate(self._filtered_issues):
+                if issue.id == selected_id:
+                    table.move_cursor(row=idx)
+                    break
 
     def _update_status_bar(self) -> None:
         status_bar = self.query_one(StatusBar)
