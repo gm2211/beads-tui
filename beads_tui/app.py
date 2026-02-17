@@ -516,7 +516,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         if table.row_count == 0:
             return
         row_key, _ = table.coordinate_to_cell_key(table.cursor_coordinate)
-        issue_id = str(row_key)
+        issue_id = str(row_key.value)
         if not issue_id:
             return
         from .screens.detail_screen import DetailScreen
@@ -608,7 +608,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         if table.row_count == 0:
             return None
         row_key, _ = table.coordinate_to_cell_key(table.cursor_coordinate)
-        issue_id = str(row_key)
+        issue_id = str(row_key.value)
         for issue in self._filtered_issues:
             if issue.id == issue_id:
                 return issue
