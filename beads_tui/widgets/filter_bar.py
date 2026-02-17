@@ -99,16 +99,19 @@ class FilterBar(Widget):
                 [(text, val) for text, val in self.STATUS_OPTIONS],
                 id="status-filter",
                 prompt="Status",
+                value="",
             )
             yield Select(
                 [(text, val) for text, val in self.PRIORITY_OPTIONS],
                 id="priority-filter",
                 prompt="Priority",
+                value="",
             )
             yield Select(
                 [(text, val) for text, val in self.TYPE_OPTIONS],
                 id="type-filter",
                 prompt="Type",
+                value="",
             )
             yield Button("Clear", id="clear-filters", variant="default")
 
@@ -162,9 +165,9 @@ class FilterBar(Widget):
     def clear_all(self) -> None:
         """Reset all filters to their defaults and post FiltersChanged."""
         self.query_one("#search-input", Input).value = ""
-        self.query_one("#status-filter", Select).clear()
-        self.query_one("#priority-filter", Select).clear()
-        self.query_one("#type-filter", Select).clear()
+        self.query_one("#status-filter", Select).value = ""
+        self.query_one("#priority-filter", Select).value = ""
+        self.query_one("#type-filter", Select).value = ""
         self._post_filters_changed()
 
     def get_filters(self) -> dict[str, str | None]:
@@ -174,18 +177,12 @@ class FilterBar(Widget):
         Values are None when set to the default / "All" position.
         """
         search_val = self.query_one("#search-input", Input).value.strip()
-
-        status_sel = self.query_one("#status-filter", Select)
-        status_val = "" if status_sel.is_blank() else status_sel.value
-
-        priority_sel = self.query_one("#priority-filter", Select)
-        priority_val = "" if priority_sel.is_blank() else priority_sel.value
-
-        type_sel = self.query_one("#type-filter", Select)
-        type_val = "" if type_sel.is_blank() else type_sel.value
+        status_val = self.query_one("#status-filter", Select).value
+        priority_val = self.query_one("#priority-filter", Select).value
+        type_val = self.query_one("#type-filter", Select).value
 
         return {
-            "search": search_val,
+            "search": search_val or None,
             "status": status_val or None,
             "priority": priority_val or None,
             "type": type_val or None,
