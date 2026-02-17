@@ -195,12 +195,6 @@ class FilterBar(Widget):
             self._search_timer.reset()
             self._search_timer.resume()
 
-    def on_descendant_focus(self, event) -> None:
-        """Auto-expand Select widgets when they receive focus (avoids double-click)."""
-        widget = event.widget
-        if isinstance(widget, Select) and not widget.expanded:
-            widget.expanded = True
-
     def on_select_changed(self, event: Select.Changed) -> None:
         self._post_filters_changed()
 
