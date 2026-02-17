@@ -46,6 +46,8 @@ class FilterBar(Widget):
         height: 3;
         border: solid #44447a;
         margin: 0 0 0 1;
+        content-align: center middle;
+        text-align: center;
     }
     """
 
@@ -118,7 +120,7 @@ class FilterBar(Widget):
             yield Button("Clear", id="clear-filters", variant="default")
 
     def on_mount(self) -> None:
-        self._search_timer = self.set_timer(
+        self._search_timer = self.set_interval(
             0.3, self._on_search_timer, pause=True
         )
 
