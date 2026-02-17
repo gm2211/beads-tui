@@ -1,10 +1,1007 @@
+/* =============================================================================
+   Beads TUI - Dark Theme (Catppuccin-inspired)
+   =============================================================================
+   Color palette:
+     Surface:    #1e1e2e (dark base)
+     Panel:      #282840 (slightly lighter)
+     Highlight:  #333350 (subtle row highlight)
+     Border:     #44447a (muted indigo)
+     Text:       #cdd6f4 (light lavender)
+     Dim text:   #6c7086 (overlay)
+   ============================================================================= */
+
+
+/* ---------------------------------------------------------------------------
+   Screen and top-level layout
+   --------------------------------------------------------------------------- */
+
 Screen {
-    background: $surface;
+    background: #1e1e2e;
+    color: #cdd6f4;
 }
+
+#main-container {
+    width: 100%;
+    height: 100%;
+    background: #1e1e2e;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Header / Footer overrides
+   --------------------------------------------------------------------------- */
+
+Header {
+    background: #181825;
+    color: #cdd6f4;
+    dock: top;
+    text-style: bold;
+}
+
+Footer {
+    background: #181825;
+    color: #6c7086;
+    dock: bottom;
+}
+
+FooterKey {
+    background: #181825;
+    color: #6c7086;
+}
+
+FooterKey:hover {
+    background: #333350;
+    color: #cdd6f4;
+}
+
+FooterKey > .footer-key--key {
+    background: #333350;
+    color: #89b4fa;
+    text-style: bold;
+}
+
+FooterKey:hover > .footer-key--key {
+    background: #44447a;
+    color: #cdd6f4;
+}
+
+
+/* ---------------------------------------------------------------------------
+   DataTable
+   --------------------------------------------------------------------------- */
+
+DataTable {
+    width: 100%;
+    height: 1fr;
+    background: #1e1e2e;
+    color: #cdd6f4;
+    scrollbar-color: #44447a;
+    scrollbar-color-hover: #89b4fa;
+    scrollbar-color-active: #b4befe;
+    scrollbar-background: #1e1e2e;
+}
+
+DataTable > .datatable--header {
+    background: #181825;
+    color: #89b4fa;
+    text-style: bold;
+}
+
+DataTable > .datatable--cursor {
+    background: #333350;
+    color: #cdd6f4;
+    text-style: bold;
+}
+
+DataTable > .datatable--hover {
+    background: #282840;
+}
+
+DataTable > .datatable--even-row {
+    background: #1e1e2e;
+}
+
+DataTable > .datatable--odd-row {
+    background: #21213a;
+}
+
+DataTable:focus > .datatable--cursor {
+    background: #44447a;
+    color: #cdd6f4;
+    text-style: bold;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Priority classes  (P0 = critical ... P4 = backlog)
+   --------------------------------------------------------------------------- */
+
+.priority-0 {
+    color: #ff4444;
+    text-style: bold;
+}
+
+.priority-1 {
+    color: #ff8c00;
+    text-style: bold;
+}
+
+.priority-2 {
+    color: #ffd700;
+}
+
+.priority-3 {
+    color: #4a9eff;
+}
+
+.priority-4 {
+    color: #666666;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Status classes
+   --------------------------------------------------------------------------- */
+
+.status-open {
+    color: #44bb44;
+}
+
+.status-in-progress {
+    color: #00cccc;
+}
+
+.status-blocked {
+    color: #ff4444;
+    text-style: bold;
+}
+
+.status-deferred {
+    color: #aa77ff;
+}
+
+.status-closed {
+    color: #666666;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Detail screen
+   --------------------------------------------------------------------------- */
+
+#detail-screen {
+    width: 100%;
+    height: 100%;
+    background: #1e1e2e;
+    padding: 1 2;
+}
+
+#detail-header {
+    width: 100%;
+    height: auto;
+    padding: 1 2;
+    background: #181825;
+    border: solid #44447a;
+    margin-bottom: 1;
+}
+
+#detail-title {
+    width: 100%;
+    text-style: bold;
+    color: #cdd6f4;
+    padding: 0 1;
+}
+
+#detail-meta {
+    width: 100%;
+    height: auto;
+    layout: horizontal;
+    padding: 1 1 0 1;
+}
+
+#detail-body {
+    width: 100%;
+    height: 1fr;
+    padding: 1 2;
+    background: #1e1e2e;
+    overflow-y: auto;
+    scrollbar-color: #44447a;
+    scrollbar-color-hover: #89b4fa;
+    scrollbar-background: #1e1e2e;
+}
+
+#detail-description {
+    width: 100%;
+    padding: 1 0;
+    color: #cdd6f4;
+}
+
+#detail-comments {
+    width: 100%;
+    padding: 1 0;
+    border-top: solid #333350;
+    margin-top: 1;
+}
+
+#detail-dependencies {
+    width: 100%;
+    padding: 1 0;
+    border-top: solid #333350;
+    margin-top: 1;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Badges (used in detail-meta row for priority, status, type, owner, etc.)
+   --------------------------------------------------------------------------- */
+
+.badge {
+    padding: 0 1;
+    margin: 0 1 0 0;
+    text-style: bold;
+    background: #333350;
+    color: #cdd6f4;
+    min-width: 8;
+    height: 1;
+}
+
+.badge-priority {
+    padding: 0 1;
+    margin: 0 1 0 0;
+    text-style: bold;
+    min-width: 6;
+    height: 1;
+}
+
+.badge-status {
+    padding: 0 1;
+    margin: 0 1 0 0;
+    text-style: bold;
+    min-width: 8;
+    height: 1;
+}
+
+.badge-type {
+    padding: 0 1;
+    margin: 0 1 0 0;
+    background: #282840;
+    color: #b4befe;
+    min-width: 6;
+    height: 1;
+}
+
+.badge-owner {
+    padding: 0 1;
+    margin: 0 1 0 0;
+    background: #282840;
+    color: #a6e3a1;
+    min-width: 6;
+    height: 1;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Create / edit form
+   --------------------------------------------------------------------------- */
+
+#create-form {
+    width: 80%;
+    max-width: 100;
+    height: auto;
+    max-height: 90%;
+    padding: 2 3;
+    background: #1e1e2e;
+    border: solid #44447a;
+    margin: 2 0;
+}
+
+#create-form-title {
+    width: 100%;
+    text-style: bold;
+    color: #89b4fa;
+    padding: 0 0 1 0;
+    text-align: center;
+}
+
+.form-field {
+    width: 100%;
+    height: auto;
+    margin: 1 0;
+}
+
+.form-label {
+    width: 100%;
+    height: 1;
+    color: #89b4fa;
+    text-style: bold;
+    padding: 0 0 0 0;
+    margin: 0 0 0 0;
+}
+
+Input {
+    background: #282840;
+    color: #cdd6f4;
+    border: solid #44447a;
+    padding: 0 1;
+}
+
+Input:focus {
+    border: solid #89b4fa;
+    background: #333350;
+}
+
+TextArea {
+    background: #282840;
+    color: #cdd6f4;
+    border: solid #44447a;
+    padding: 0 1;
+}
+
+TextArea:focus {
+    border: solid #89b4fa;
+    background: #333350;
+}
+
+Select {
+    background: #282840;
+    color: #cdd6f4;
+    border: solid #44447a;
+}
+
+Select:focus {
+    border: solid #89b4fa;
+}
+
+SelectOverlay {
+    background: #282840;
+    color: #cdd6f4;
+    border: solid #44447a;
+}
+
+SelectCurrent {
+    background: #282840;
+    color: #cdd6f4;
+}
+
+Button {
+    background: #44447a;
+    color: #cdd6f4;
+    border: none;
+    padding: 0 2;
+    margin: 1 1 0 0;
+    min-width: 12;
+    text-align: center;
+}
+
+Button:hover {
+    background: #89b4fa;
+    color: #1e1e2e;
+    text-style: bold;
+}
+
+Button:focus {
+    background: #89b4fa;
+    color: #1e1e2e;
+    text-style: bold;
+}
+
+Button.-primary {
+    background: #89b4fa;
+    color: #1e1e2e;
+    text-style: bold;
+}
+
+Button.-primary:hover {
+    background: #b4befe;
+    color: #1e1e2e;
+}
+
+Button.-error {
+    background: #ff4444;
+    color: #1e1e2e;
+    text-style: bold;
+}
+
+Button.-error:hover {
+    background: #ff6666;
+    color: #1e1e2e;
+}
+
+Button.-success {
+    background: #44bb44;
+    color: #1e1e2e;
+    text-style: bold;
+}
+
+Button.-success:hover {
+    background: #66dd66;
+    color: #1e1e2e;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Filter bar
+   --------------------------------------------------------------------------- */
+
+#filter-bar {
+    width: 100%;
+    height: 3;
+    layout: horizontal;
+    background: #181825;
+    padding: 0 1;
+    dock: top;
+    border-bottom: solid #333350;
+}
+
+#search-input {
+    width: 1fr;
+    min-width: 20;
+    background: #282840;
+    color: #cdd6f4;
+    border: solid #44447a;
+    margin: 0 1 0 0;
+}
+
+#search-input:focus {
+    border: solid #89b4fa;
+    background: #333350;
+}
+
+.filter-chip {
+    min-width: 8;
+    height: 1;
+    padding: 0 1;
+    margin: 0 1 0 0;
+    background: #282840;
+    color: #6c7086;
+    border: solid #333350;
+    text-align: center;
+}
+
+.filter-chip:hover {
+    background: #333350;
+    color: #cdd6f4;
+    border: solid #44447a;
+}
+
+.filter-chip:focus {
+    border: solid #89b4fa;
+    color: #cdd6f4;
+}
+
+.filter-chip--active {
+    background: #44447a;
+    color: #cdd6f4;
+    border: solid #89b4fa;
+    text-style: bold;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Help overlay
+   --------------------------------------------------------------------------- */
+
+#help-overlay {
+    width: 60%;
+    max-width: 80;
+    height: 80%;
+    max-height: 40;
+    padding: 2 3;
+    background: #1e1e2e;
+    border: double #89b4fa;
+    margin: 2 0;
+    overflow-y: auto;
+    scrollbar-color: #44447a;
+    scrollbar-color-hover: #89b4fa;
+    scrollbar-background: #1e1e2e;
+}
+
+#help-title {
+    width: 100%;
+    text-style: bold;
+    color: #89b4fa;
+    text-align: center;
+    padding: 0 0 1 0;
+}
+
+.help-section {
+    width: 100%;
+    height: auto;
+    padding: 1 0;
+    border-bottom: solid #333350;
+}
+
+.help-section-title {
+    width: 100%;
+    color: #f9e2af;
+    text-style: bold;
+    padding: 0 0 1 0;
+}
+
+.help-row {
+    width: 100%;
+    height: 1;
+    layout: horizontal;
+    padding: 0;
+}
+
+.help-key {
+    width: 14;
+    color: #89b4fa;
+    text-style: bold;
+    padding: 0 1 0 2;
+}
+
+.help-desc {
+    width: 1fr;
+    color: #cdd6f4;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Status bar / footer bar
+   --------------------------------------------------------------------------- */
+
+#status-bar {
+    width: 100%;
+    height: 1;
+    layout: horizontal;
+    background: #181825;
+    color: #6c7086;
+    dock: bottom;
+}
+
+.status-left {
+    width: 1fr;
+    height: 1;
+    padding: 0 1;
+    color: #6c7086;
+    text-align: left;
+}
+
+.status-center {
+    width: auto;
+    height: 1;
+    padding: 0 2;
+    color: #89b4fa;
+    text-align: center;
+}
+
+.status-right {
+    width: 1fr;
+    height: 1;
+    padding: 0 1;
+    color: #6c7086;
+    text-align: right;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Notifications / toast
+   --------------------------------------------------------------------------- */
+
+.notification {
+    width: auto;
+    max-width: 60;
+    height: auto;
+    padding: 1 2;
+    margin: 1;
+    background: #282840;
+    color: #cdd6f4;
+    border: solid #44447a;
+    text-align: center;
+}
+
+.notification--success {
+    background: #1e3a1e;
+    color: #44bb44;
+    border: solid #44bb44;
+}
+
+.notification--error {
+    background: #3a1e1e;
+    color: #ff4444;
+    border: solid #ff4444;
+}
+
+.notification--warning {
+    background: #3a3a1e;
+    color: #ffd700;
+    border: solid #ffd700;
+}
+
+.notification--info {
+    background: #1e2e3a;
+    color: #4a9eff;
+    border: solid #4a9eff;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Modal screens / dialogs
+   --------------------------------------------------------------------------- */
+
+ModalScreen {
+    background: rgba(0, 0, 0, 0.7);
+    align: center middle;
+}
+
+#modal-container {
+    width: 60%;
+    max-width: 80;
+    height: auto;
+    max-height: 80%;
+    padding: 2 3;
+    background: #1e1e2e;
+    border: double #89b4fa;
+    overflow-y: auto;
+}
+
+#modal-title {
+    width: 100%;
+    text-style: bold;
+    color: #89b4fa;
+    text-align: center;
+    padding: 0 0 1 0;
+    border-bottom: solid #333350;
+    margin-bottom: 1;
+}
+
+#modal-body {
+    width: 100%;
+    height: auto;
+    padding: 1 0;
+    color: #cdd6f4;
+}
+
+#modal-footer {
+    width: 100%;
+    height: auto;
+    layout: horizontal;
+    padding: 1 0 0 0;
+    border-top: solid #333350;
+    margin-top: 1;
+    content-align: center middle;
+}
+
+#confirm-dialog {
+    width: 50%;
+    max-width: 60;
+    height: auto;
+    padding: 2 3;
+    background: #1e1e2e;
+    border: double #ff8c00;
+}
+
+#confirm-title {
+    width: 100%;
+    text-style: bold;
+    color: #ff8c00;
+    text-align: center;
+    padding: 0 0 1 0;
+}
+
+#confirm-body {
+    width: 100%;
+    padding: 1 0;
+    color: #cdd6f4;
+}
+
+#confirm-buttons {
+    width: 100%;
+    layout: horizontal;
+    content-align: center middle;
+    padding: 1 0 0 0;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Scrollbar global styling
+   --------------------------------------------------------------------------- */
+
+* {
+    scrollbar-color: #44447a;
+    scrollbar-color-hover: #89b4fa;
+    scrollbar-color-active: #b4befe;
+    scrollbar-background: #1e1e2e;
+    scrollbar-background-hover: #1e1e2e;
+    scrollbar-background-active: #1e1e2e;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Placeholder (initial empty state)
+   --------------------------------------------------------------------------- */
 
 #placeholder {
     width: 100%;
     height: 1fr;
     content-align: center middle;
     text-style: bold;
+    color: #6c7086;
+    background: #1e1e2e;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Loading indicator
+   --------------------------------------------------------------------------- */
+
+LoadingIndicator {
+    background: #1e1e2e;
+    color: #89b4fa;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Tabs (if used)
+   --------------------------------------------------------------------------- */
+
+Tabs {
+    background: #181825;
+    color: #6c7086;
+}
+
+Tab {
+    background: #181825;
+    color: #6c7086;
+    padding: 0 2;
+}
+
+Tab:hover {
+    background: #282840;
+    color: #cdd6f4;
+}
+
+Tab.-active {
+    background: #1e1e2e;
+    color: #89b4fa;
+    text-style: bold;
+}
+
+Underline > .underline--bar {
+    color: #89b4fa;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Tree widget (if used for issue hierarchy)
+   --------------------------------------------------------------------------- */
+
+Tree {
+    background: #1e1e2e;
+    color: #cdd6f4;
+    scrollbar-color: #44447a;
+}
+
+Tree > .tree--cursor {
+    background: #333350;
+    color: #cdd6f4;
+    text-style: bold;
+}
+
+Tree:focus > .tree--cursor {
+    background: #44447a;
+}
+
+Tree > .tree--guides {
+    color: #44447a;
+}
+
+Tree > .tree--guides-hover {
+    color: #89b4fa;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Tooltip
+   --------------------------------------------------------------------------- */
+
+Tooltip {
+    background: #282840;
+    color: #cdd6f4;
+    border: solid #44447a;
+    padding: 0 1;
+}
+
+
+/* ---------------------------------------------------------------------------
+   OptionList (used by Select and other widgets)
+   --------------------------------------------------------------------------- */
+
+OptionList {
+    background: #282840;
+    color: #cdd6f4;
+    border: solid #44447a;
+    scrollbar-color: #44447a;
+}
+
+OptionList > .option-list--option-highlighted {
+    background: #333350;
+    color: #cdd6f4;
+}
+
+OptionList > .option-list--option-hover {
+    background: #282840;
+}
+
+OptionList:focus > .option-list--option-highlighted {
+    background: #44447a;
+    color: #cdd6f4;
+    text-style: bold;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Comment styling (in detail view)
+   --------------------------------------------------------------------------- */
+
+.comment {
+    width: 100%;
+    height: auto;
+    padding: 1 1;
+    margin: 0 0 1 0;
+    background: #21213a;
+    border-left: tall #44447a;
+}
+
+.comment-author {
+    color: #89b4fa;
+    text-style: bold;
+}
+
+.comment-date {
+    color: #6c7086;
+    padding: 0 0 0 2;
+}
+
+.comment-text {
+    color: #cdd6f4;
+    padding: 1 0 0 0;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Issue type indicators
+   --------------------------------------------------------------------------- */
+
+.type-bug {
+    color: #ff4444;
+}
+
+.type-feature {
+    color: #89b4fa;
+}
+
+.type-task {
+    color: #a6e3a1;
+}
+
+.type-epic {
+    color: #f9e2af;
+    text-style: bold;
+}
+
+.type-chore {
+    color: #6c7086;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Empty state
+   --------------------------------------------------------------------------- */
+
+.empty-state {
+    width: 100%;
+    height: 1fr;
+    content-align: center middle;
+    color: #6c7086;
+    text-style: italic;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Label / tag chips (for issue labels)
+   --------------------------------------------------------------------------- */
+
+.label-chip {
+    padding: 0 1;
+    margin: 0 1 0 0;
+    background: #333350;
+    color: #b4befe;
+    height: 1;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Dependency list items
+   --------------------------------------------------------------------------- */
+
+.dep-item {
+    width: 100%;
+    height: 1;
+    padding: 0 1;
+}
+
+.dep-item-id {
+    color: #89b4fa;
+    text-style: bold;
+    width: 12;
+}
+
+.dep-item-title {
+    color: #cdd6f4;
+    width: 1fr;
+}
+
+.dep-item-type {
+    color: #6c7086;
+    width: 12;
+    text-align: right;
+}
+
+
+/* ---------------------------------------------------------------------------
+   General utility classes
+   --------------------------------------------------------------------------- */
+
+.dim {
+    opacity: 0.5;
+}
+
+.bold {
+    text-style: bold;
+}
+
+.italic {
+    text-style: italic;
+}
+
+.underline {
+    text-style: underline;
+}
+
+.text-muted {
+    color: #6c7086;
+}
+
+.text-primary {
+    color: #89b4fa;
+}
+
+.text-success {
+    color: #44bb44;
+}
+
+.text-warning {
+    color: #ffd700;
+}
+
+.text-error {
+    color: #ff4444;
+}
+
+.bg-surface {
+    background: #1e1e2e;
+}
+
+.bg-panel {
+    background: #282840;
+}
+
+.hidden {
+    display: none;
+}
+
+.border-accent {
+    border: solid #89b4fa;
+}
+
+.border-subtle {
+    border: solid #333350;
+}
+
+.center {
+    content-align: center middle;
+    text-align: center;
 }
