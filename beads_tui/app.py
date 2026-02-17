@@ -147,101 +147,156 @@ def _sort_key_for_column(col_key: str, issue: Issue) -> object:
 
 
 # ---------------------------------------------------------------------------
-# Column config screen
+# Sort picker & column menu
 # ---------------------------------------------------------------------------
 
 from textual.screen import ModalScreen
 from textual.containers import Vertical, Horizontal
-from textual.widgets import Button, Checkbox, Label
+from textual.widgets import Button, Checkbox, Label, OptionList
+from textual.widgets.option_list import Option
 
 
-class ColumnConfigScreen(ModalScreen[list[str] | None]):
-    """Modal dialog for toggling column visibility and reordering."""
+class SortPicker(ModalScreen[tuple[str, bool] | None]):
+    """Pick sort column and direction."""
 
-    BINDINGS = [
-        Binding("escape", "cancel", "Cancel", show=True),
-    ]
+    BINDINGS = [Binding("escape", "cancel", "Cancel")]
 
     DEFAULT_CSS = """\
-    ColumnConfigScreen {
+    SortPicker {
         align: center middle;
     }
 
-    ColumnConfigScreen > #col-dialog {
-        width: 50;
-        max-width: 90%;
+    SortPicker > #sort-dialog {
+        width: 40;
+        max-width: 80%;
         height: auto;
-        max-height: 80%;
+        max-height: 70%;
         background: $surface;
         border: tall $primary;
         padding: 1 2;
     }
 
-    ColumnConfigScreen > #col-dialog > #col-title {
+    SortPicker > #sort-dialog > #sort-title {
+        text-align: center;
+        text-style: bold;
+        width: 100%;
+        margin-bottom: 1;
+    }
+    """
+
+    def __init__(
+        self,
+        columns: dict[str, str],
+        current_col: str,
+        current_reverse: bool,
+    ) -> None:
+        super().__init__()
+        self._columns = columns
+        self._current_col = current_col
+        self._current_reverse = current_reverse
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="sort-dialog"):
+            yield Label("Sort By", id="sort-title")
+            option_list = OptionList(id="sort-options")
+            for key, label in self._columns.items():
+                if key == self._current_col:
+                    arrow = "\u25bc" if self._current_reverse else "\u25b2"
+                    display = f"{label} {arrow}"
+                else:
+                    display = label
+                option_list.add_option(Option(display, id=key))
+            yield option_list
+
+    @on(OptionList.OptionSelected)
+    def _on_option_selected(self, event: OptionList.OptionSelected) -> None:
+        col_key = str(event.option.id)
+        if col_key == self._current_col:
+            self.dismiss((col_key, not self._current_reverse))
+        else:
+            self.dismiss((col_key, False))
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+class ColumnMenu(ModalScreen[list[str] | None]):
+    """Toggle column visibility."""
+
+    BINDINGS = [Binding("escape", "cancel", "Cancel")]
+
+    DEFAULT_CSS = """\
+    ColumnMenu {
+        align: center middle;
+    }
+
+    ColumnMenu > #col-menu-dialog {
+        width: 40;
+        max-width: 80%;
+        height: auto;
+        max-height: 70%;
+        background: $surface;
+        border: tall $primary;
+        padding: 1 2;
+    }
+
+    ColumnMenu > #col-menu-dialog > #col-menu-title {
         text-align: center;
         text-style: bold;
         width: 100%;
         margin-bottom: 1;
     }
 
-    ColumnConfigScreen > #col-dialog .col-row {
-        height: 3;
-        width: 100%;
-    }
-
-    ColumnConfigScreen > #col-dialog #col-buttons {
+    ColumnMenu > #col-menu-dialog #col-menu-buttons {
         width: 100%;
         height: auto;
         align-horizontal: center;
         margin-top: 1;
     }
 
-    ColumnConfigScreen > #col-dialog #col-buttons Button {
-        margin: 0 2;
-        min-width: 12;
+    ColumnMenu > #col-menu-dialog #col-menu-buttons Button {
+        margin: 0 1;
     }
     """
 
-    def __init__(self, active_columns: list[str]) -> None:
+    def __init__(self, all_columns: dict[str, str], active: list[str]) -> None:
         super().__init__()
-        self._active_columns = list(active_columns)
+        self._all_columns = all_columns
+        self._active = active
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="col-dialog"):
-            yield Label("Column Configuration", id="col-title")
-            yield Label("Check columns to show, use Move Up/Down to reorder.", classes="text-muted")
-            for col_key in self._active_columns:
-                col_def = AVAILABLE_COLUMNS.get(col_key)
-                if col_def:
-                    yield Checkbox(col_def.label, value=True, id=f"col-chk-{col_key}")
-            for col_key in AVAILABLE_COLUMNS:
-                if col_key not in self._active_columns:
-                    col_def = AVAILABLE_COLUMNS[col_key]
-                    yield Checkbox(col_def.label, value=False, id=f"col-chk-{col_key}")
-            with Horizontal(id="col-buttons"):
-                yield Button("Cancel", variant="default", id="col-btn-cancel")
-                yield Button("Apply", variant="primary", id="col-btn-apply")
+        with Vertical(id="col-menu-dialog"):
+            yield Label("Visible Columns", id="col-menu-title")
+            for key in self._active:
+                if key in self._all_columns:
+                    yield Checkbox(self._all_columns[key], value=True, id=f"colm-{key}")
+            for key in self._all_columns:
+                if key not in self._active:
+                    yield Checkbox(self._all_columns[key], value=False, id=f"colm-{key}")
+            with Horizontal(id="col-menu-buttons"):
+                yield Button("Apply", variant="primary", id="colm-apply")
+                yield Button("Cancel", id="colm-cancel")
 
     def action_cancel(self) -> None:
         self.dismiss(None)
 
-    @on(Button.Pressed, "#col-btn-cancel")
+    @on(Button.Pressed, "#colm-cancel")
     def _on_cancel(self) -> None:
         self.dismiss(None)
 
-    @on(Button.Pressed, "#col-btn-apply")
+    @on(Button.Pressed, "#colm-apply")
     def _on_apply(self) -> None:
         result: list[str] = []
-        # Maintain order: first active columns that are still checked, then newly checked
-        for col_key in self._active_columns:
-            chk = self.query_one(f"#col-chk-{col_key}", Checkbox)
-            if chk.value:
-                result.append(col_key)
-        for col_key in AVAILABLE_COLUMNS:
-            if col_key not in self._active_columns:
-                chk = self.query_one(f"#col-chk-{col_key}", Checkbox)
+        for key in self._active:
+            if key in self._all_columns:
+                chk = self.query_one(f"#colm-{key}", Checkbox)
                 if chk.value:
-                    result.append(col_key)
+                    result.append(key)
+        for key in self._all_columns:
+            if key not in self._active:
+                chk = self.query_one(f"#colm-{key}", Checkbox)
+                if chk.value:
+                    result.append(key)
         if not result:
             self.notify("At least one column must be selected", severity="error")
             return
@@ -269,7 +324,8 @@ class BeadsTuiApp(LiveReloadMixin, App):
         Binding("k", "cursor_up", "Up", show=False),
         Binding("enter", "select_issue", "Open", show=False),
         Binding("A", "toggle_all", "Toggle All", key_display="A"),
-        Binding("numbersign", "column_config", "Columns", key_display="#"),
+        Binding("o", "sort_picker", "Sort"),
+        Binding("numbersign", "column_menu", "Columns", key_display="#"),
         Binding("p", "quick_priority", "Priority", show=False),
         Binding("s", "quick_status", "Status", show=False),
         Binding("x", "quick_close", "Close", show=False),
@@ -589,7 +645,23 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self.notify(f"Showing {label} issues")
         self._load_issues()
 
-    def action_column_config(self) -> None:
+    def action_sort_picker(self) -> None:
+        columns = {k: v.label for k, v in AVAILABLE_COLUMNS.items()}
+
+        def _on_dismiss(result: tuple[str, bool] | None) -> None:
+            if result is not None:
+                self._sort_column, self._sort_reverse = result
+                self._rebuild_columns()
+                self._apply_filters_and_sort()
+                self._populate_table()
+
+        self.push_screen(
+            SortPicker(columns, self._sort_column, self._sort_reverse),
+            callback=_on_dismiss,
+        )
+
+    def action_column_menu(self) -> None:
+        all_columns = {k: v.label for k, v in AVAILABLE_COLUMNS.items()}
         self.pause_refresh()
 
         def _on_dismiss(result: list[str] | None) -> None:
@@ -599,7 +671,10 @@ class BeadsTuiApp(LiveReloadMixin, App):
                 self._rebuild_columns()
                 self._populate_table()
 
-        self.push_screen(ColumnConfigScreen(self._active_columns), callback=_on_dismiss)
+        self.push_screen(
+            ColumnMenu(all_columns, self._active_columns),
+            callback=_on_dismiss,
+        )
 
     # ------------------------------------------------------------------
     # Quick-edit actions (from list view)
