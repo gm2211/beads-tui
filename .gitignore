@@ -1,2 +1,6 @@
 .agent-status.d/
 .worktrees/
+*.egg-info/
+__pycache__/
+dist/
+build/

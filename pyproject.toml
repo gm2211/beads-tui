@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68.0", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "beads-tui"
+version = "0.1.0"
+description = "Interactive TUI for beads (bd) issue tracker"
+requires-python = ">=3.11"
+dependencies = ["textual>=1.0.0"]
+
+[project.scripts]
+bdt = "beads_tui.__main__:main"
