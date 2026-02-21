@@ -51,7 +51,11 @@ _PRIORITY_SHORT: dict[int, tuple[str, str]] = {
 class DependencyPicker(ModalScreen[str | None]):
     """Pick a dependency to navigate to."""
 
-    BINDINGS = [Binding("escape", "cancel", "Cancel")]
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("j", "cursor_down", "Down", show=False),
+        Binding("k", "cursor_up", "Up", show=False),
+    ]
 
     DEFAULT_CSS = """
     DependencyPicker {
@@ -89,6 +93,12 @@ class DependencyPicker(ModalScreen[str | None]):
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         self.dismiss(str(event.option.id))
 
+    def action_cursor_down(self) -> None:
+        self.query_one("#dep-options", OptionList).action_cursor_down()
+
+    def action_cursor_up(self) -> None:
+        self.query_one("#dep-options", OptionList).action_cursor_up()
+
     def action_cancel(self) -> None:
         self.dismiss(None)
 
@@ -96,7 +106,11 @@ class DependencyPicker(ModalScreen[str | None]):
 class CommentPicker(ModalScreen[int | None]):
     """Pick a comment to delete."""
 
-    BINDINGS = [Binding("escape", "cancel", "Cancel")]
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("j", "cursor_down", "Down", show=False),
+        Binding("k", "cursor_up", "Up", show=False),
+    ]
 
     DEFAULT_CSS = """
     CommentPicker {
@@ -137,6 +151,12 @@ class CommentPicker(ModalScreen[int | None]):
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         self.dismiss(int(str(event.option.id)))
 
+    def action_cursor_down(self) -> None:
+        self.query_one("#comment-options", OptionList).action_cursor_down()
+
+    def action_cursor_up(self) -> None:
+        self.query_one("#comment-options", OptionList).action_cursor_up()
+
     def action_cancel(self) -> None:
         self.dismiss(None)
 
@@ -147,8 +167,13 @@ class DetailScreen(Screen):
     BINDINGS = [
         Binding("escape", "go_back", "Back", priority=True),
         Binding("q", "go_back", "Back"),
+        Binding("enter", "go_back", "Back", show=False),
         Binding("j", "scroll_down", "Down", show=False),
         Binding("k", "scroll_up", "Up", show=False),
+        Binding("l", "focus_next_section", "Right", show=False),
+        Binding("right", "focus_next_section", "Right", show=False),
+        Binding("h", "focus_scroll", "Left", show=False),
+        Binding("left", "focus_scroll", "Left", show=False),
         Binding("p", "change_priority", "Priority"),
         Binding("s", "change_status", "Status"),
         Binding("a", "change_assignee", "Assignee"),
@@ -238,7 +263,6 @@ class DetailScreen(Screen):
         width: 1fr;
         height: auto;
         padding: 0 0 0 2;
-        border-left: solid #333350;
     }
 
     #linked-title {
@@ -250,7 +274,12 @@ class DetailScreen(Screen):
         opacity: 50%;
     }
 
-    #linked-body {
+    #linked-list {
+        width: 100%;
+        height: auto;
+    }
+
+    #linked-none {
         width: 100%;
         height: auto;
         color: #cdd6f4;
@@ -372,7 +401,8 @@ class DetailScreen(Screen):
                             yield Static("", classes="field-value", id=f"fv-{field_key}")
                 with Vertical(id="fields-right"):
                     yield Static("Linked Issues", id="linked-title")
-                    yield Static("", id="linked-body")
+                    yield OptionList(id="linked-list")
+                    yield Static("None", id="linked-none")
 
             # Description
             with Vertical(classes="section", id="section-description"):
@@ -507,24 +537,27 @@ class DetailScreen(Screen):
             notes_section.display = False
 
         # -- Linked Issues (right panel) --
+        linked_list = self.query_one("#linked-list", OptionList)
+        linked_none = self.query_one("#linked-none", Static)
+        linked_list.clear_options()
         has_deps = bool(issue.dependencies or issue.dependents)
         if has_deps:
-            parts: list[Text | str] = []
             if issue.dependencies:
-                parts.append(Text("Blocks:\n", style="bold #6c7086"))
+                linked_list.add_option(Option(Text("Blocks:", style="bold #6c7086"), disabled=True))
                 for dep in issue.dependencies:
-                    parts.append(self._dep_line("\u2192", dep))
+                    dep_id = dep.id or (dep.depends_on_id if hasattr(dep, "depends_on_id") else dep.issue_id)
+                    linked_list.add_option(Option(self._dep_line_inline("\u2192", dep), id=dep_id))
             if issue.dependents:
-                if issue.dependencies:
-                    parts.append("\n")
-                parts.append(Text("Blocked by:\n", style="bold #6c7086"))
+                linked_list.add_option(Option(Text("Blocked by:", style="bold #6c7086"), disabled=True))
                 for dep in issue.dependents:
-                    parts.append(self._dep_line("\u2190", dep))
-            self.query_one("#linked-body", Static).update(Text.assemble(*parts))
+                    dep_id = dep.id or (dep.issue_id if hasattr(dep, "issue_id") else dep.depends_on_id)
+                    linked_list.add_option(Option(self._dep_line_inline("\u2190", dep), id=dep_id))
+            linked_list.display = True
+            linked_none.display = False
         else:
-            self.query_one("#linked-body", Static).update(
-                Text("None", style="dim")
-            )
+            linked_list.display = False
+            linked_none.update(Text("None", style="dim"))
+            linked_none.display = True
 
         # -- Comments --
         comments_section = self.query_one("#section-comments")
@@ -570,6 +603,31 @@ class DetailScreen(Screen):
             Text("\n"),
         )
 
+    def _dep_line_inline(self, arrow: str, dep) -> Text:
+        """Like _dep_line but without trailing newline, for use in OptionList."""
+        dep_id = dep.id or (dep.depends_on_id if hasattr(dep, "depends_on_id") else dep.issue_id)
+        is_closed = dep.status == "closed"
+        dim = "dim " if is_closed else ""
+
+        sym, sym_style = _STATUS_SYMBOLS.get(dep.status, ("?", ""))
+        pri_label, pri_style = _PRIORITY_SHORT.get(dep.priority, ("P?", ""))
+
+        return Text.assemble(
+            Text(f"{arrow} ", style=dim + "default"),
+            Text(sym, style=dim + sym_style),
+            Text(" "),
+            Text(pri_label, style=dim + pri_style),
+            Text(" "),
+            Text(dep_id, style=dim + "bold #89b4fa"),
+            Text("  "),
+            Text(dep.title or "", style=dim + "default"),
+        )
+
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        """Navigate to a linked issue when selected from the panel."""
+        if event.option_list.id == "linked-list" and event.option.id is not None:
+            self.app.push_screen(DetailScreen(str(event.option.id)))
+
     # ------------------------------------------------------------------
     # Actions
     # ------------------------------------------------------------------
@@ -577,11 +635,39 @@ class DetailScreen(Screen):
     def action_go_back(self) -> None:
         self.app.pop_screen()
 
+    def action_focus_next_section(self) -> None:
+        """Cycle focus to the next focusable section (linked issues list)."""
+        linked_list = self.query_one("#linked-list", OptionList)
+        if linked_list.display and not linked_list.has_focus:
+            linked_list.highlighted = 0
+            # Skip disabled header options (e.g. "Blocks:", "Blocked by:")
+            while (
+                linked_list.highlighted is not None
+                and linked_list.highlighted < linked_list.option_count
+                and linked_list.get_option_at_index(linked_list.highlighted).disabled
+            ):
+                linked_list.highlighted += 1
+            linked_list.focus()
+        else:
+            self.query_one("#detail-scroll", VerticalScroll).focus()
+
+    def action_focus_scroll(self) -> None:
+        """Return focus to the main scroll area."""
+        self.query_one("#detail-scroll", VerticalScroll).focus()
+
     def action_scroll_down(self) -> None:
-        self.query_one("#detail-scroll", VerticalScroll).scroll_down(animate=False)
+        linked_list = self.query_one("#linked-list", OptionList)
+        if linked_list.has_focus:
+            linked_list.action_cursor_down()
+        else:
+            self.query_one("#detail-scroll", VerticalScroll).scroll_down(animate=False)
 
     def action_scroll_up(self) -> None:
-        self.query_one("#detail-scroll", VerticalScroll).scroll_up(animate=False)
+        linked_list = self.query_one("#linked-list", OptionList)
+        if linked_list.has_focus:
+            linked_list.action_cursor_up()
+        else:
+            self.query_one("#detail-scroll", VerticalScroll).scroll_up(animate=False)
 
     def action_noop(self) -> None:
         pass

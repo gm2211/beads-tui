@@ -20,7 +20,17 @@ from textual.widgets import Button, Checkbox, Input, Label
 class CheckboxFilterModal(ModalScreen[set[str] | None]):
     """Modal with checkboxes for picking one or more values."""
 
-    BINDINGS = [Binding("escape", "cancel", "Cancel")]
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("j", "next_item", "Down", show=False),
+        Binding("k", "prev_item", "Up", show=False),
+        Binding("down", "next_item", "Down", show=False),
+        Binding("up", "prev_item", "Up", show=False),
+        Binding("l", "next_item", "Right", show=False),
+        Binding("h", "prev_item", "Left", show=False),
+        Binding("right", "next_item", "Right", show=False),
+        Binding("left", "prev_item", "Left", show=False),
+    ]
 
     DEFAULT_CSS = """
     CheckboxFilterModal {
@@ -42,7 +52,7 @@ class CheckboxFilterModal(ModalScreen[set[str] | None]):
             with Horizontal(id="status-modal-buttons"):
                 yield Button("All", id="status-all-btn")
                 yield Button("None", id="status-none-btn")
-                yield Button("Apply", variant="primary", id="status-apply-btn")
+                yield Button("Apply", id="status-apply-btn")
                 yield Button("Cancel", id="status-cancel-btn")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -61,6 +71,34 @@ class CheckboxFilterModal(ModalScreen[set[str] | None]):
             self.dismiss(selected)
         elif bid == "status-cancel-btn":
             self.dismiss(None)
+
+    def _focusable_items(self) -> list:
+        items: list = []
+        for _, value in self._choices:
+            items.append(self.query_one(f"#chk-{value}", Checkbox))
+        for btn in self.query("#status-modal-buttons Button"):
+            items.append(btn)
+        return items
+
+    def action_next_item(self) -> None:
+        items = self._focusable_items()
+        if not items:
+            return
+        try:
+            idx = items.index(self.focused)
+            items[(idx + 1) % len(items)].focus()
+        except (ValueError, TypeError):
+            items[0].focus()
+
+    def action_prev_item(self) -> None:
+        items = self._focusable_items()
+        if not items:
+            return
+        try:
+            idx = items.index(self.focused)
+            items[(idx - 1) % len(items)].focus()
+        except (ValueError, TypeError):
+            items[-1].focus()
 
     def on_click(self, event: Click) -> None:
         if self is event.widget:

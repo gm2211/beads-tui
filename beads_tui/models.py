@@ -20,7 +20,7 @@ class Dependency:
     title: str = ""
     description: str = ""
     status: str = ""
-    priority: int = 0
+    priority: int = -1
     issue_type: str = ""
     owner: str = ""
     dependency_type: str = ""
@@ -37,7 +37,7 @@ class Dependency:
             title=data.get("title", ""),
             description=data.get("description", ""),
             status=data.get("status", ""),
-            priority=data.get("priority", 0),
+            priority=data.get("priority", -1),
             issue_type=data.get("issue_type", ""),
             owner=data.get("owner", ""),
             dependency_type=data.get("dependency_type", ""),
