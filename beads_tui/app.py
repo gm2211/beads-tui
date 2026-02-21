@@ -26,19 +26,19 @@ from .widgets.status_bar import StatusBar
 # ---------------------------------------------------------------------------
 
 _PRIORITY_STYLES: dict[int, tuple[str, str]] = {
-    0: ("P0", "bold red"),
-    1: ("P1", "dark_orange"),
-    2: ("P2", "yellow"),
-    3: ("P3", "dodger_blue"),
+    0: ("P0", "bold #ff4444"),
+    1: ("P1", "#e08614"),
+    2: ("P2", "#c4a000"),
+    3: ("P3", "#5b9bd5"),
     4: ("P4", "dim"),
 }
 
-_STATUS_SYMBOLS: dict[str, str] = {
-    "open": "\u25cb",          # open circle
-    "in_progress": "\u25d0",   # half circle
-    "blocked": "\u25cf",       # filled circle
-    "deferred": "\u2744",      # snowflake
-    "closed": "\u2713",        # checkmark
+_STATUS_DISPLAY: dict[str, tuple[str, str]] = {
+    "open": ("Open", "bold white on #2d6a2d"),
+    "in_progress": ("In Prog", "bold white on #1a6a6a"),
+    "blocked": ("Blocked", "bold white on #8b2020"),
+    "deferred": ("Deferred", "bold white on #2d2d8b"),
+    "closed": ("Closed", "white on grey37"),
 }
 
 
@@ -52,15 +52,8 @@ def _priority_cell(priority: int) -> Text:
 
 
 def _status_cell(status: str) -> Text:
-    symbol = _STATUS_SYMBOLS.get(status, status)
-    style_map = {
-        "open": "green",
-        "in_progress": "cyan",
-        "blocked": "bold red",
-        "deferred": "blue",
-        "closed": "dim",
-    }
-    return _styled(symbol, style_map.get(status, ""))
+    label, style = _STATUS_DISPLAY.get(status, (status, ""))
+    return _styled(label, style)
 
 
 def _title_cell(title: str, priority: int) -> Text:
@@ -72,6 +65,13 @@ def _short_date(dt: str) -> str:
     if not dt:
         return ""
     return dt[:10]
+
+
+def _short_id(issue_id: str) -> str:
+    """Strip the project prefix from an issue ID (e.g. 'proj-abc' -> 'abc')."""
+    if "-" in issue_id:
+        return issue_id.rsplit("-", 1)[-1]
+    return issue_id
 
 
 def _deps_cell(issue: Issue) -> Text:
@@ -103,17 +103,18 @@ class ColumnDef:
 AVAILABLE_COLUMNS: dict[str, ColumnDef] = {
     "id": ColumnDef(key="id", label="ID", getter=lambda i: _styled(i.id, "bold"), width=12),
     "priority": ColumnDef(key="priority", label="P", getter=lambda i: _priority_cell(i.priority), width=4),
-    "status": ColumnDef(key="status", label="Status", getter=lambda i: _status_cell(i.status), width=8),
+    "status": ColumnDef(key="status", label="Status", getter=lambda i: _status_cell(i.status), width=10),
     "type": ColumnDef(key="type", label="Type", getter=lambda i: Text(i.issue_type or ""), width=10),
     "title": ColumnDef(key="title", label="Title", getter=lambda i: _title_cell(i.title, i.priority), width=None),
-    "assignee": ColumnDef(key="assignee", label="Assignee", getter=lambda i: Text(i.owner or i.assignee or ""), width=12),
+    "assignee": ColumnDef(key="assignee", label="Assignee", getter=lambda i: Text(i.owner or i.assignee or ""), width=14),
     "updated": ColumnDef(key="updated", label="Updated", getter=lambda i: Text(_short_date(i.updated_at)), width=12),
     "created": ColumnDef(key="created", label="Created", getter=lambda i: Text(_short_date(i.created_at)), width=12),
     "labels": ColumnDef(key="labels", label="Labels", getter=lambda i: Text(", ".join(i.labels)), width=15),
     "deps": ColumnDef(key="deps", label="Deps", getter=_deps_cell, width=8),
+    "last_comment": ColumnDef(key="last_comment", label="Latest Update", getter=lambda i: Text(""), width=None),
 }
 
-DEFAULT_COLUMNS = ["id", "priority", "status", "type", "title", "updated"]
+DEFAULT_COLUMNS = ["id", "priority", "status", "assignee", "title", "last_comment"]
 
 
 # ---------------------------------------------------------------------------
@@ -328,6 +329,8 @@ class BeadsTuiApp(LiveReloadMixin, App):
         Binding("r", "refresh", "Refresh"),
         Binding("j", "cursor_down", "Down", show=False),
         Binding("k", "cursor_up", "Up", show=False),
+        Binding("h", "scroll_left", "Left", show=False),
+        Binding("l", "scroll_right", "Right", show=False),
         Binding("enter", "select_issue", "Open", show=False),
         Binding("A", "toggle_all", "Toggle All", key_display="A"),
         Binding("o", "sort_picker", "Sort"),
@@ -335,6 +338,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         Binding("p", "quick_priority", "Priority", show=False),
         Binding("s", "quick_status", "Status", show=False),
         Binding("x", "quick_close", "Close", show=False),
+        Binding("i", "toggle_id_prefix", "Toggle ID", show=False),
     ]
 
     def __init__(
@@ -355,6 +359,8 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self._sort_column: str = "priority"
         self._sort_reverse: bool = False
         self._quit_pending: bool = False
+        self._strip_id_prefix: bool = True
+        self._last_comments: dict[str, str] = {}  # issue_id -> latest comment preview
         self._current_filters: dict = {
             "search": None,
             "statuses": {"open", "in_progress"} if not show_all else None,
@@ -363,9 +369,9 @@ class BeadsTuiApp(LiveReloadMixin, App):
         }
 
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield Header(icon="")
         yield FilterBar()
-        yield DataTable(id="issue-table", cursor_type="row")
+        yield DataTable(id="issue-table", cursor_type="row", zebra_stripes=True)
         yield StatusBar()
 
     def on_mount(self) -> None:
@@ -373,41 +379,66 @@ class BeadsTuiApp(LiveReloadMixin, App):
             self.client = BdClient(bd_path=self._bd_path, db_path=self._db_path)
         except BdError:
             self.client = None
-        self.WATCH_PATH = self._discover_watch_path()
         self._rebuild_columns()
         self._load_issues()
         self.start_live_reload()
-
-    def _discover_watch_path(self) -> str | None:
-        """Discover the .beads/ directory to watch for file changes.
-
-        If a db_path was provided use its parent directory (or the path itself
-        if it is already a directory).  Otherwise fall back to ``.beads/``
-        relative to the current working directory.
-        """
-        from pathlib import Path
-
-        if self._db_path:
-            p = Path(self._db_path)
-            candidate = p if p.is_dir() else p.parent
-            if candidate.exists():
-                return str(candidate)
-
-        default = Path(".beads")
-        if default.exists():
-            return str(default)
-
-        return None
+        self.query_one("#issue-table", DataTable).focus()
 
     # ------------------------------------------------------------------
     # Column management
     # ------------------------------------------------------------------
 
+    def _col_width(self, col_key: str) -> int | None:
+        """Return the effective fixed width for a column, or None for flex."""
+        col_def = AVAILABLE_COLUMNS.get(col_key)
+        if not col_def:
+            return None
+        if col_key == "id" and self._strip_id_prefix:
+            return 6
+        return col_def.width
+
     def _rebuild_columns(self) -> None:
         """Rebuild DataTable columns from active column list + sort indicators."""
         table = self.query_one("#issue-table", DataTable)
         table.clear(columns=True)
+
+        total_width = table.size.width or self.size.width or 120
+
+        # Each non-first column has a 2-char separator prefix (│ )
+        num_seps = max(len(self._active_columns) - 1, 0)
+        usable = total_width - (num_seps * 2)
+
+        # Tally fixed column widths; collect flex keys
+        fixed_used = 0
+        flex_keys: list[str] = []
         for col_key in self._active_columns:
+            w = self._col_width(col_key)
+            if w:
+                fixed_used += w
+            else:
+                flex_keys.append(col_key)
+
+        remaining = usable - fixed_used
+
+        # Title = exactly longest title; last_comment gets ALL remaining space
+        # If terminal too narrow, shrink both proportionally but always fit
+        max_title = max((len(i.title) for i in self._filtered_issues), default=20)
+        flex_widths: dict[str, int] = {}
+        if "title" in flex_keys and "last_comment" in flex_keys:
+            title_w = max(max_title, 10)
+            comment_w = remaining - title_w
+            if comment_w < 10:
+                # Not enough room — shrink title to make space for comment
+                title_w = max(remaining - 10, 10)
+                comment_w = max(remaining - title_w, 5)
+            flex_widths["title"] = title_w
+            flex_widths["last_comment"] = comment_w
+        elif flex_keys:
+            even = max(remaining // len(flex_keys), 10)
+            for k in flex_keys:
+                flex_widths[k] = even
+
+        for idx, col_key in enumerate(self._active_columns):
             col_def = AVAILABLE_COLUMNS.get(col_key)
             if not col_def:
                 continue
@@ -415,20 +446,29 @@ class BeadsTuiApp(LiveReloadMixin, App):
             if col_key == self._sort_column:
                 arrow = "\u25b2" if not self._sort_reverse else "\u25bc"
                 label = f"{label} {arrow}"
-            if col_def.width:
-                table.add_column(label, key=col_key, width=col_def.width)
-            else:
-                table.add_column(label, key=col_key)
+            # Content width (without separator)
+            content_w = self._col_width(col_key) or flex_widths.get(col_key, 20)
+            if idx > 0:
+                label = f"\u2502 {label}"
+                content_w += 2  # separator is part of the column width
+            table.add_column(label, key=col_key, width=content_w)
 
     def _get_row_cells(self, issue: Issue) -> list[Text | str]:
         """Build row cells based on active columns."""
+        sep = Text("\u2502 ", style="#44447a")
         cells: list[Text | str] = []
-        for col_key in self._active_columns:
-            col_def = AVAILABLE_COLUMNS.get(col_key)
-            if col_def:
-                cells.append(col_def.getter(issue))
+        for idx, col_key in enumerate(self._active_columns):
+            if col_key == "last_comment":
+                preview = self._last_comments.get(issue.id, "")
+                val = Text(preview, style="dim") if preview else Text("")
+            elif col_key == "id" and self._strip_id_prefix:
+                val = _styled(_short_id(issue.id), "bold")
             else:
-                cells.append("")
+                col_def = AVAILABLE_COLUMNS.get(col_key)
+                val = col_def.getter(issue) if col_def else Text("")
+            if idx > 0:
+                val = Text.assemble(sep, val) if isinstance(val, Text) else Text.assemble(sep, str(val))
+            cells.append(val)
         return cells
 
     # ------------------------------------------------------------------
@@ -445,8 +485,12 @@ class BeadsTuiApp(LiveReloadMixin, App):
             issues = []
         self._issues = issues
         self._apply_filters_and_sort()
+        self._rebuild_columns()
         self._populate_table()
         self._update_status_bar()
+        # Kick off background comment loading
+        if "last_comment" in self._active_columns:
+            self._load_latest_comments()
 
     async def refresh_data(self) -> None:
         """LiveReloadMixin callback: incremental refresh with diff."""
@@ -489,6 +533,49 @@ class BeadsTuiApp(LiveReloadMixin, App):
             self._populate_table()
 
         self._update_status_bar()
+
+        # Invalidate comment cache for changed issues so they get re-fetched
+        for issue in changed:
+            self._last_comments.pop(issue.id, None)
+        for rid in removed_ids:
+            self._last_comments.pop(rid, None)
+
+        # Refresh comments for changed/added issues
+        if "last_comment" in self._active_columns and (added or changed):
+            self._load_latest_comments()
+
+    @work(exclusive=True, group="comments")
+    async def _load_latest_comments(self) -> None:
+        """Fetch latest comment for each visible issue with comments (background)."""
+        if self.client is None:
+            return
+        table = self.query_one("#issue-table", DataTable)
+        for issue in list(self._filtered_issues):
+            if issue.comment_count <= 0:
+                continue
+            # Skip if we already have a cached comment for this issue
+            if issue.id in self._last_comments:
+                continue
+            try:
+                comments = await self.client.list_comments(issue.id)
+                if comments:
+                    last = comments[-1]
+                    preview = last.text.replace("\n", " ").strip()
+                    self._last_comments[issue.id] = preview
+                    # Update the cell in the table (include separator)
+                    col_idx = self._active_columns.index("last_comment") if "last_comment" in self._active_columns else -1
+                    try:
+                        cell_val = Text(preview, style="dim")
+                        if col_idx > 0:
+                            cell_val = Text.assemble(Text("\u2502 ", style="#44447a"), cell_val)
+                        table.update_cell(
+                            issue.id, "last_comment",
+                            cell_val,
+                        )
+                    except Exception:
+                        pass
+            except BdError:
+                pass
 
     # ------------------------------------------------------------------
     # Filtering and sorting
@@ -583,6 +670,11 @@ class BeadsTuiApp(LiveReloadMixin, App):
     # Event handlers
     # ------------------------------------------------------------------
 
+    def on_resize(self) -> None:
+        """Recalculate flexible column widths on terminal resize."""
+        self._rebuild_columns()
+        self._populate_table()
+
     @on(FilterBar.FiltersChanged)
     def _on_filters_changed(self, event: FilterBar.FiltersChanged) -> None:
         self._current_filters = {
@@ -615,7 +707,9 @@ class BeadsTuiApp(LiveReloadMixin, App):
         if not issue_id:
             return
         from .screens.detail_screen import DetailScreen
-        self.push_screen(DetailScreen(issue_id))
+        prefetch = self._find_cached_issue(issue_id)
+        self.pause_refresh()
+        self.push_screen(DetailScreen(issue_id, prefetch=prefetch), callback=lambda _: self.resume_refresh())
 
     # ------------------------------------------------------------------
     # Actions
@@ -638,6 +732,12 @@ class BeadsTuiApp(LiveReloadMixin, App):
     def action_cursor_up(self) -> None:
         self.query_one("#issue-table", DataTable).action_cursor_up()
 
+    def action_scroll_left(self) -> None:
+        self.query_one("#issue-table", DataTable).scroll_left(animate=False)
+
+    def action_scroll_right(self) -> None:
+        self.query_one("#issue-table", DataTable).scroll_right(animate=False)
+
     def action_refresh(self) -> None:
         self._load_issues()
 
@@ -650,7 +750,9 @@ class BeadsTuiApp(LiveReloadMixin, App):
         if not issue_id:
             return
         from .screens.detail_screen import DetailScreen
-        self.push_screen(DetailScreen(issue_id))
+        prefetch = self._find_cached_issue(issue_id)
+        self.pause_refresh()
+        self.push_screen(DetailScreen(issue_id, prefetch=prefetch), callback=lambda _: self.resume_refresh())
 
     def action_help(self) -> None:
         self.push_screen(HelpScreen())
@@ -728,6 +830,13 @@ class BeadsTuiApp(LiveReloadMixin, App):
             callback=_on_dismiss,
         )
 
+    def _find_cached_issue(self, issue_id: str) -> Issue | None:
+        """Look up an issue from the already-loaded list data."""
+        for issue in self._issues:
+            if issue.id == issue_id:
+                return issue
+        return None
+
     # ------------------------------------------------------------------
     # Quick-edit actions (from list view)
     # ------------------------------------------------------------------
@@ -786,3 +895,10 @@ class BeadsTuiApp(LiveReloadMixin, App):
             self._load_issues()
         except BdError as e:
             self.notify(f"Error: {e}", severity="error")
+
+    def action_toggle_id_prefix(self) -> None:
+        self._strip_id_prefix = not self._strip_id_prefix
+        self._rebuild_columns()
+        self._populate_table()
+        label = "short" if self._strip_id_prefix else "full"
+        self.notify(f"ID format: {label}")

@@ -7,7 +7,7 @@ name = "beads-tui"
 version = "0.1.0"
 description = "Interactive TUI for beads (bd) issue tracker"
 requires-python = ">=3.11"
-dependencies = ["textual>=1.0.0", "watchfiles>=0.19.0"]
+dependencies = ["textual>=8.0.0"]
 
 [project.scripts]
 bdt = "beads_tui.__main__:main"
