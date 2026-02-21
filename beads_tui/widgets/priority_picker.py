@@ -15,7 +15,7 @@ _PRIORITIES: list[tuple[int, str, str]] = [
     (0, "P0 Critical", "bold red"),
     (1, "P1 High", "dark_orange"),
     (2, "P2 Normal", "yellow"),
-    (3, "P3 Low", "dodger_blue"),
+    (3, "P3 Low", "dodger_blue1"),
     (4, "P4 Backlog", "dim"),
 ]
 

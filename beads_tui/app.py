@@ -79,7 +79,7 @@ def _deps_cell(issue: Issue) -> Text:
     """Show dependency counts with directional indicators."""
     parts = []
     if issue.dependency_count > 0:
-        parts.append(Text(f"\u2192{issue.dependency_count}", style="dodger_blue"))
+        parts.append(Text(f"\u2192{issue.dependency_count}", style="dodger_blue1"))
     if issue.dependent_count > 0:
         if parts:
             parts.append(Text(" "))
@@ -365,8 +365,8 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self._current_filters: dict = {
             "search": None,
             "statuses": {"open", "in_progress"} if not show_all else None,
-            "priority": None,
-            "type": None,
+            "priorities": None,
+            "types": None,
         }
 
     def compose(self) -> ComposeResult:
@@ -570,19 +570,15 @@ class BeadsTuiApp(LiveReloadMixin, App):
                 or q in (i.issue_type or "").lower()
             ]
 
-        # Priority filter
-        priority = f.get("priority")
-        if priority is not None:
-            try:
-                pval = int(priority)
-                filtered = [i for i in filtered if i.priority == pval]
-            except (ValueError, TypeError):
-                pass
+        # Priority filter (multi-select)
+        priorities = f.get("priorities")
+        if priorities is not None:
+            filtered = [i for i in filtered if str(i.priority) in priorities]
 
-        # Type filter
-        type_ = f.get("type")
-        if type_:
-            filtered = [i for i in filtered if i.issue_type == type_]
+        # Type filter (multi-select)
+        types = f.get("types")
+        if types is not None:
+            filtered = [i for i in filtered if i.issue_type in types]
 
         # Sort
         filtered.sort(
@@ -618,10 +614,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         status_bar.total_count = len(self._issues)
         now = datetime.datetime.now().strftime("%H:%M:%S")
         status_bar.set_refresh_time(now)
-        has_filter = any(
-            v for k, v in self._current_filters.items()
-            if k == "statuses" and v is not None or k != "statuses" and v
-        )
+        has_filter = any(v is not None for v in self._current_filters.values())
         status_bar.filter_active = has_filter
         statuses = self._current_filters.get("statuses")
         if statuses is None:
@@ -644,8 +637,8 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self._current_filters = {
             "search": event.search or None,
             "statuses": event.statuses,
-            "priority": event.priority,
-            "type": event.type_,
+            "priorities": event.priorities,
+            "types": event.types,
         }
         self._apply_filters_and_sort()
         self._populate_table()

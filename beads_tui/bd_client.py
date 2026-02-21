@@ -278,6 +278,11 @@ class BdClient:
     async def add_comment(self, issue_id: str, text: str) -> None:
         await self._run_bd("comments", "add", issue_id, text, parse_json=False)
 
+    async def delete_comment(self, comment_id: int) -> None:
+        await self._run_bd(
+            "sql", f"DELETE FROM comments WHERE id = {comment_id}", parse_json=False
+        )
+
     # ------------------------------------------------------------------
     # Labels
     # ------------------------------------------------------------------

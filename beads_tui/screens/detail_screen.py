@@ -19,7 +19,7 @@ _PRIORITY_LABELS: dict[int, tuple[str, str]] = {
     0: ("CRITICAL", "white on red"),
     1: ("HIGH", "white on dark_orange"),
     2: ("MEDIUM", "black on yellow"),
-    3: ("LOW", "white on dodger_blue"),
+    3: ("LOW", "white on dodger_blue1"),
     4: ("MINIMAL", "white on grey37"),
 }
 
@@ -43,7 +43,7 @@ _PRIORITY_SHORT: dict[int, tuple[str, str]] = {
     0: ("P0", "bold red"),
     1: ("P1", "dark_orange"),
     2: ("P2", "yellow"),
-    3: ("P3", "dodger_blue"),
+    3: ("P3", "dodger_blue1"),
     4: ("P4", "dim"),
 }
 
@@ -93,6 +93,54 @@ class DependencyPicker(ModalScreen[str | None]):
         self.dismiss(None)
 
 
+class CommentPicker(ModalScreen[int | None]):
+    """Pick a comment to delete."""
+
+    BINDINGS = [Binding("escape", "cancel", "Cancel")]
+
+    DEFAULT_CSS = """
+    CommentPicker {
+        align: center middle;
+    }
+    CommentPicker > #comment-picker-dialog {
+        width: 80;
+        max-width: 90%;
+        height: auto;
+        max-height: 70%;
+        background: $surface;
+        border: tall $primary;
+        padding: 1 2;
+    }
+    CommentPicker > #comment-picker-dialog > #comment-picker-title {
+        text-align: center;
+        text-style: bold;
+        width: 100%;
+        margin-bottom: 1;
+    }
+    """
+
+    def __init__(self, comments: list[Comment]):
+        super().__init__()
+        self._comments = comments
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="comment-picker-dialog"):
+            yield Label("Delete Comment", id="comment-picker-title")
+            option_list = OptionList(id="comment-options")
+            for comment in self._comments:
+                ts = comment.created_at[:16] if comment.created_at else ""
+                preview = (comment.text or "")[:60].replace("\n", " ")
+                display = f"{comment.author or 'unknown'}  {ts}  {preview}"
+                option_list.add_option(Option(display, id=str(comment.id)))
+            yield option_list
+
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        self.dismiss(int(str(event.option.id)))
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
 class DetailScreen(Screen):
     """Show full details of a single issue."""
 
@@ -107,6 +155,7 @@ class DetailScreen(Screen):
         Binding("e", "edit_title", "Edit title"),
         Binding("d", "edit_description", "Description"),
         Binding("g", "goto_dep", "Go to dep"),
+        Binding("x", "delete_comment", "Del comment"),
         Binding("o", "noop", "Sort", show=False),
         Binding("numbersign", "noop", "#Columns", show=False),
         Binding("r", "noop", "Refresh", show=False),
@@ -159,7 +208,6 @@ class DetailScreen(Screen):
 
     .detail-badge {
         height: 1;
-        padding: 0 1;
         margin: 0 1 0 0;
     }
 
@@ -168,7 +216,45 @@ class DetailScreen(Screen):
         width: 100%;
         height: auto;
         padding: 1 2;
+        layout: horizontal;
         border-bottom: solid #333350;
+    }
+
+    #fields-left {
+        width: 1fr;
+        height: auto;
+    }
+
+    #details-title {
+        color: #89b4fa;
+        text-style: bold;
+        width: 100%;
+        height: auto;
+        padding: 0 0 1 0;
+        opacity: 50%;
+    }
+
+    #fields-right {
+        width: 1fr;
+        height: auto;
+        padding: 0 0 0 2;
+        border-left: solid #333350;
+    }
+
+    #linked-title {
+        color: #89b4fa;
+        text-style: bold;
+        width: 100%;
+        height: auto;
+        padding: 0 0 1 0;
+        opacity: 50%;
+    }
+
+    #linked-body {
+        width: 100%;
+        height: auto;
+        color: #cdd6f4;
+        padding: 0 0 0 1;
     }
 
     .field-row {
@@ -203,8 +289,9 @@ class DetailScreen(Screen):
         color: #89b4fa;
         text-style: bold;
         width: 100%;
-        height: 1;
+        height: auto;
         padding: 0 0 1 0;
+        opacity: 50%;
     }
 
     .section-body {
@@ -276,11 +363,16 @@ class DetailScreen(Screen):
                     yield Static("", id="badge-assignee", classes="detail-badge")
 
             # Fields panel
-            with Vertical(id="fields-panel"):
-                for field_key in ("assignee", "type", "created", "updated", "labels", "due", "ref"):
-                    with Horizontal(classes="field-row"):
-                        yield Static("", classes="field-label", id=f"fl-{field_key}")
-                        yield Static("", classes="field-value", id=f"fv-{field_key}")
+            with Horizontal(id="fields-panel"):
+                with Vertical(id="fields-left"):
+                    yield Static("Details", id="details-title")
+                    for field_key in ("assignee", "type", "created", "updated", "labels", "due", "ref"):
+                        with Horizontal(classes="field-row"):
+                            yield Static("", classes="field-label", id=f"fl-{field_key}")
+                            yield Static("", classes="field-value", id=f"fv-{field_key}")
+                with Vertical(id="fields-right"):
+                    yield Static("Linked Issues", id="linked-title")
+                    yield Static("", id="linked-body")
 
             # Description
             with Vertical(classes="section", id="section-description"):
@@ -292,14 +384,9 @@ class DetailScreen(Screen):
                 yield Static("Notes", classes="section-title")
                 yield Static("", classes="section-body", id="notes-body")
 
-            # Dependencies
-            with Vertical(classes="section", id="section-deps"):
-                yield Static("Dependencies", classes="section-title")
-                yield Static("", classes="section-body", id="deps-body")
-
             # Comments
             with Vertical(classes="section", id="section-comments"):
-                yield Static("Comments", classes="section-title")
+                yield Static("Comments", classes="section-title", id="comments-title")
                 yield Static("", classes="section-body", id="comments-body")
 
         yield Footer()
@@ -419,8 +506,7 @@ class DetailScreen(Screen):
         else:
             notes_section.display = False
 
-        # -- Dependencies --
-        deps_section = self.query_one("#section-deps")
+        # -- Linked Issues (right panel) --
         has_deps = bool(issue.dependencies or issue.dependents)
         if has_deps:
             parts: list[Text | str] = []
@@ -434,10 +520,11 @@ class DetailScreen(Screen):
                 parts.append(Text("Blocked by:\n", style="bold #6c7086"))
                 for dep in issue.dependents:
                     parts.append(self._dep_line("\u2190", dep))
-            self.query_one("#deps-body", Static).update(Text.assemble(*parts))
-            deps_section.display = True
+            self.query_one("#linked-body", Static).update(Text.assemble(*parts))
         else:
-            deps_section.display = False
+            self.query_one("#linked-body", Static).update(
+                Text("None", style="dim")
+            )
 
         # -- Comments --
         comments_section = self.query_one("#section-comments")
@@ -590,3 +677,23 @@ class DetailScreen(Screen):
             target_id = await self.app.push_screen_wait(DependencyPicker(deps_list))
         if target_id:
             self.app.push_screen(DetailScreen(target_id))
+
+    @work
+    async def action_delete_comment(self) -> None:
+        if not self._comments:
+            self.notify("No comments to delete")
+            return
+        if len(self._comments) == 1:
+            comment_id = self._comments[0].id
+        else:
+            comment_id = await self.app.push_screen_wait(
+                CommentPicker(self._comments)
+            )
+        if comment_id is not None:
+            client: BdClient = self.app.client  # type: ignore[attr-defined]
+            try:
+                await client.delete_comment(comment_id)
+                self.notify("Comment deleted")
+                self._load_issue()
+            except BdError as exc:
+                self.notify(f"Failed to delete comment: {exc}", severity="error")

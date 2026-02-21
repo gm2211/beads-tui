@@ -10,47 +10,56 @@ from textual.message import Message
 from textual.screen import ModalScreen
 from textual.timer import Timer
 from textual.widget import Widget
-from textual.widgets import Button, Checkbox, Input, Label, OptionList
-from textual.widgets.option_list import Option
+from textual.widgets import Button, Checkbox, Input, Label
 
 
 # ---------------------------------------------------------------------------
-# Generic single-select picker modal
+# Generic checkbox filter modal (multi-select)
 # ---------------------------------------------------------------------------
 
-class SinglePickerModal(ModalScreen[str | None]):
-    """Modal that lets the user pick one value from a list."""
+class CheckboxFilterModal(ModalScreen[set[str] | None]):
+    """Modal with checkboxes for picking one or more values."""
 
     BINDINGS = [Binding("escape", "cancel", "Cancel")]
 
     DEFAULT_CSS = """
-    SinglePickerModal {
+    CheckboxFilterModal {
         align: center middle;
     }
     """
 
-    def __init__(self, title: str, options: list[tuple[str, str]], current: str) -> None:
+    def __init__(self, title: str, choices: list[tuple[str, str]], current: set[str]) -> None:
         super().__init__()
         self._title = title
-        self._options = options  # (label, value) pairs
-        self._current = current
+        self._choices = choices
+        self._current = set(current)
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="picker-modal"):
-            yield Label(self._title, id="picker-modal-title")
-            ol = OptionList(id="picker-options")
-            for label, value in self._options:
-                display = f"{label}  \u2713" if value == self._current else label
-                ol.add_option(Option(display, id=value))
-            yield ol
-            with Horizontal(id="picker-modal-buttons"):
-                yield Button("Cancel", id="picker-cancel-btn")
-
-    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
-        self.dismiss(str(event.option.id))
+        with Vertical(id="status-modal"):
+            yield Label(self._title, id="status-modal-title")
+            for label, value in self._choices:
+                yield Checkbox(label, value=(value in self._current), id=f"chk-{value}")
+            with Horizontal(id="status-modal-buttons"):
+                yield Button("All", id="status-all-btn")
+                yield Button("None", id="status-none-btn")
+                yield Button("Apply", variant="primary", id="status-apply-btn")
+                yield Button("Cancel", id="status-cancel-btn")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "picker-cancel-btn":
+        bid = event.button.id
+        if bid == "status-all-btn":
+            for _, value in self._choices:
+                self.query_one(f"#chk-{value}", Checkbox).value = True
+        elif bid == "status-none-btn":
+            for _, value in self._choices:
+                self.query_one(f"#chk-{value}", Checkbox).value = False
+        elif bid == "status-apply-btn":
+            selected: set[str] = set()
+            for _, value in self._choices:
+                if self.query_one(f"#chk-{value}", Checkbox).value:
+                    selected.add(value)
+            self.dismiss(selected)
+        elif bid == "status-cancel-btn":
             self.dismiss(None)
 
     def on_click(self, event: Click) -> None:
@@ -94,63 +103,18 @@ def _status_button_label(statuses: set[str]) -> str:
     return ", ".join(_ABBREV.get(s, s) for s in ordered)
 
 
-class StatusFilterModal(ModalScreen[set[str] | None]):
-    """Modal with checkboxes for picking one or more statuses."""
-
-    BINDINGS = [Binding("escape", "cancel", "Cancel")]
-
-    DEFAULT_CSS = """
-    StatusFilterModal {
-        align: center middle;
-    }
-    """
+class StatusFilterModal(CheckboxFilterModal):
+    """Convenience wrapper for status multi-select."""
 
     def __init__(self, current: set[str]) -> None:
-        super().__init__()
-        self._current = set(current)
-
-    def compose(self) -> ComposeResult:
-        with Vertical(id="status-modal"):
-            yield Label("Status Filter", id="status-modal-title")
-            for label, value in _STATUS_CHOICES:
-                yield Checkbox(label, value=(value in self._current), id=f"status-chk-{value}")
-            with Horizontal(id="status-modal-buttons"):
-                yield Button("All", id="status-all-btn")
-                yield Button("None", id="status-none-btn")
-                yield Button("Apply", variant="primary", id="status-apply-btn")
-                yield Button("Cancel", id="status-cancel-btn")
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        bid = event.button.id
-        if bid == "status-all-btn":
-            for _, value in _STATUS_CHOICES:
-                self.query_one(f"#status-chk-{value}", Checkbox).value = True
-        elif bid == "status-none-btn":
-            for _, value in _STATUS_CHOICES:
-                self.query_one(f"#status-chk-{value}", Checkbox).value = False
-        elif bid == "status-apply-btn":
-            selected: set[str] = set()
-            for _, value in _STATUS_CHOICES:
-                if self.query_one(f"#status-chk-{value}", Checkbox).value:
-                    selected.add(value)
-            self.dismiss(selected)
-        elif bid == "status-cancel-btn":
-            self.dismiss(None)
-
-    def on_click(self, event: Click) -> None:
-        if self is event.widget:
-            self.dismiss(None)
-
-    def action_cancel(self) -> None:
-        self.dismiss(None)
+        super().__init__("Status Filter", _STATUS_CHOICES, current)
 
 
 # ---------------------------------------------------------------------------
 # Filter bar
 # ---------------------------------------------------------------------------
 
-_PRIORITY_OPTIONS: list[tuple[str, str]] = [
-    ("All Priorities", ""),
+_PRIORITY_CHOICES: list[tuple[str, str]] = [
     ("P0 Critical", "0"),
     ("P1 High", "1"),
     ("P2 Normal", "2"),
@@ -158,10 +122,9 @@ _PRIORITY_OPTIONS: list[tuple[str, str]] = [
     ("P4 Backlog", "4"),
 ]
 
-_PRIORITY_LABELS: dict[str, str] = {v: l for l, v in _PRIORITY_OPTIONS}
+_DEFAULT_PRIORITIES: frozenset[str] = frozenset(v for _, v in _PRIORITY_CHOICES)
 
-_TYPE_OPTIONS: list[tuple[str, str]] = [
-    ("All Types", ""),
+_TYPE_CHOICES: list[tuple[str, str]] = [
     ("Task", "task"),
     ("Bug", "bug"),
     ("Feature", "feature"),
@@ -169,7 +132,25 @@ _TYPE_OPTIONS: list[tuple[str, str]] = [
     ("Chore", "chore"),
 ]
 
-_TYPE_LABELS: dict[str, str] = {v: l for l, v in _TYPE_OPTIONS}
+_DEFAULT_TYPES: frozenset[str] = frozenset(v for _, v in _TYPE_CHOICES)
+
+
+def _priority_button_label(priorities: set[str]) -> str:
+    if len(priorities) == len(_PRIORITY_CHOICES):
+        return "All Priorities"
+    if not priorities:
+        return "No Priority"
+    ordered = [v for _, v in _PRIORITY_CHOICES if v in priorities]
+    return ", ".join(f"P{p}" for p in ordered)
+
+
+def _type_button_label(types: set[str]) -> str:
+    if len(types) == len(_TYPE_CHOICES):
+        return "All Types"
+    if not types:
+        return "No Type"
+    ordered = [v for _, v in _TYPE_CHOICES if v in types]
+    return ", ".join(t.title() for t in ordered)
 
 
 class FilterBar(Widget):
@@ -199,24 +180,24 @@ class FilterBar(Widget):
             self,
             search: str,
             statuses: set[str] | None,
-            priority: str | None,
-            type_: str | None,
+            priorities: set[str] | None,
+            types: set[str] | None,
         ) -> None:
             super().__init__()
             self.search = search
             self.statuses = statuses
-            self.priority = priority
-            self.type_ = type_
+            self.priorities = priorities
+            self.types = types
 
     _search_timer: Timer
     _selected_statuses: set[str]
-    _selected_priority: str  # "" = All
-    _selected_type: str  # "" = All
+    _selected_priorities: set[str]
+    _selected_types: set[str]
 
     def compose(self) -> ComposeResult:
         self._selected_statuses = set(_DEFAULT_STATUSES)
-        self._selected_priority = ""
-        self._selected_type = ""
+        self._selected_priorities = set(_DEFAULT_PRIORITIES)
+        self._selected_types = set(_DEFAULT_TYPES)
         with Horizontal(id="filter-bar"):
             yield Input(placeholder="Search issues...", id="search-input")
             yield Button(
@@ -286,26 +267,26 @@ class FilterBar(Widget):
         self.app.push_screen(StatusFilterModal(self._selected_statuses), callback=_on_dismiss)
 
     def _open_priority_modal(self) -> None:
-        def _on_dismiss(result: str | None) -> None:
+        def _on_dismiss(result: set[str] | None) -> None:
             if result is not None:
-                self._selected_priority = result
-                self.query_one("#priority-filter-btn", Button).label = _PRIORITY_LABELS.get(result, "All Priorities")
+                self._selected_priorities = result
+                self.query_one("#priority-filter-btn", Button).label = _priority_button_label(result)
                 self._post_filters_changed()
 
         self.app.push_screen(
-            SinglePickerModal("Priority", _PRIORITY_OPTIONS, self._selected_priority),
+            CheckboxFilterModal("Priority Filter", _PRIORITY_CHOICES, self._selected_priorities),
             callback=_on_dismiss,
         )
 
     def _open_type_modal(self) -> None:
-        def _on_dismiss(result: str | None) -> None:
+        def _on_dismiss(result: set[str] | None) -> None:
             if result is not None:
-                self._selected_type = result
-                self.query_one("#type-filter-btn", Button).label = _TYPE_LABELS.get(result, "All Types")
+                self._selected_types = result
+                self.query_one("#type-filter-btn", Button).label = _type_button_label(result)
                 self._post_filters_changed()
 
         self.app.push_screen(
-            SinglePickerModal("Type", _TYPE_OPTIONS, self._selected_type),
+            CheckboxFilterModal("Type Filter", _TYPE_CHOICES, self._selected_types),
             callback=_on_dismiss,
         )
 
@@ -323,8 +304,8 @@ class FilterBar(Widget):
             self.FiltersChanged(
                 search=filters["search"],
                 statuses=filters["statuses"],
-                priority=filters["priority"],
-                type_=filters["type"],
+                priorities=filters["priorities"],
+                types=filters["types"],
             )
         )
 
@@ -346,8 +327,8 @@ class FilterBar(Widget):
         """Reset all filters to their defaults and post FiltersChanged."""
         self.query_one("#search-input", Input).value = ""
         self._selected_statuses = set(_DEFAULT_STATUSES)
-        self._selected_priority = ""
-        self._selected_type = ""
+        self._selected_priorities = set(_DEFAULT_PRIORITIES)
+        self._selected_types = set(_DEFAULT_TYPES)
         self.query_one("#status-filter-btn", Button).label = _status_button_label(self._selected_statuses)
         self.query_one("#priority-filter-btn", Button).label = "All Priorities"
         self.query_one("#type-filter-btn", Button).label = "All Types"
@@ -356,19 +337,23 @@ class FilterBar(Widget):
     def get_filters(self) -> dict:
         """Return the current filter state.
 
-        Returns a dict with keys: search, statuses, priority, type.
-        statuses is a set[str] (may be empty meaning none selected).
-        priority and type are None when set to "All".
+        Returns a dict with keys: search, statuses, priorities, types.
+        Set values are None when all options are selected (meaning "show all").
         """
         search_val = self.query_one("#search-input", Input).value.strip()
 
-        # If all statuses are selected, return None meaning "show all"
-        all_selected = len(self._selected_statuses) == len(_STATUS_CHOICES)
-        statuses: set[str] | None = None if all_selected else set(self._selected_statuses)
+        all_statuses = len(self._selected_statuses) == len(_STATUS_CHOICES)
+        statuses: set[str] | None = None if all_statuses else set(self._selected_statuses)
+
+        all_pri = len(self._selected_priorities) == len(_PRIORITY_CHOICES)
+        priorities: set[str] | None = None if all_pri else set(self._selected_priorities)
+
+        all_types = len(self._selected_types) == len(_TYPE_CHOICES)
+        types: set[str] | None = None if all_types else set(self._selected_types)
 
         return {
             "search": search_val or None,
             "statuses": statuses,
-            "priority": self._selected_priority or None,
-            "type": self._selected_type or None,
+            "priorities": priorities,
+            "types": types,
         }
