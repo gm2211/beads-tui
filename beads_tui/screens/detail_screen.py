@@ -6,7 +6,7 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Footer, Header, Label, OptionList, Static
+from textual.widgets import Footer, Label, OptionList, Static
 from textual.widgets.option_list import Option
 from textual import work
 from rich.text import Text
@@ -264,7 +264,6 @@ class DetailScreen(Screen):
         self._comments: list[Comment] = []
 
     def compose(self) -> ComposeResult:
-        yield Header(icon="")
         with VerticalScroll(id="detail-scroll"):
             # Header block
             with Vertical(id="issue-header"):
