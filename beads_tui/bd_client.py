@@ -66,6 +66,9 @@ class BdClient:
             args += ["--db", self._db_path]
         return args
 
+    _MAX_RETRIES: int = 3
+    _RETRY_DELAY: float = 0.5  # seconds between retries
+
     async def _run_bd(
         self,
         *args: str,
@@ -76,40 +79,55 @@ class BdClient:
         When *parse_json* is True the ``--json`` flag is appended and the
         stdout is decoded as JSON.  Otherwise the raw stdout string is
         returned.
+
+        Retries up to ``_MAX_RETRIES`` times on transient Dolt panics
+        (nil pointer dereference, lock contention).
         """
         cmd = self._base_args()
         cmd.extend(args)
         if parse_json and "--json" not in cmd:
             cmd.append("--json")
 
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-        stdout_bytes, stderr_bytes = await proc.communicate()
-        stdout = stdout_bytes.decode("utf-8", errors="replace")
-        stderr = stderr_bytes.decode("utf-8", errors="replace")
-
-        if proc.returncode != 0:
-            raise BdCommandError(
-                f"bd command failed (exit {proc.returncode}): {stderr.strip() or stdout.strip()}",
-                returncode=proc.returncode,
-                stderr=stderr,
+        last_err: BdCommandError | None = None
+        for attempt in range(1, self._MAX_RETRIES + 1):
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
             )
+            stdout_bytes, stderr_bytes = await proc.communicate()
+            stdout = stdout_bytes.decode("utf-8", errors="replace")
+            stderr = stderr_bytes.decode("utf-8", errors="replace")
 
-        if not parse_json:
-            return stdout
+            if proc.returncode != 0:
+                combined = stderr + stdout
+                if attempt < self._MAX_RETRIES and (
+                    "panic:" in combined or "nil pointer" in combined
+                    or "LOCK" in combined
+                ):
+                    await asyncio.sleep(self._RETRY_DELAY * attempt)
+                    continue
+                raise BdCommandError(
+                    f"bd command failed (exit {proc.returncode}): {stderr.strip() or stdout.strip()}",
+                    returncode=proc.returncode,
+                    stderr=stderr,
+                )
 
-        if not stdout.strip():
-            return None
+            if not parse_json:
+                return stdout
 
-        try:
-            return json.loads(stdout)
-        except json.JSONDecodeError as exc:
-            raise BdCommandError(
-                f"Failed to parse bd JSON output: {exc}"
-            ) from exc
+            if not stdout.strip():
+                return None
+
+            try:
+                return json.loads(stdout)
+            except json.JSONDecodeError as exc:
+                raise BdCommandError(
+                    f"Failed to parse bd JSON output: {exc}"
+                ) from exc
+
+        # Should not reach here, but just in case:
+        raise last_err or BdCommandError("bd command failed after retries")
 
     # ------------------------------------------------------------------
     # Issue queries

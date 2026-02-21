@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable
 
 from textual.app import App, ComposeResult
@@ -13,7 +14,7 @@ from textual import on, work
 from rich.text import Text
 
 from .bd_client import BdClient, BdError
-from .mixins.live_reload import LiveReloadMixin, diff_issues
+from .mixins.live_reload import LiveReloadMixin
 from .models import Issue
 from .screens.create_screen import CreateScreen
 from .screens.help_screen import HelpScreen
@@ -379,10 +380,26 @@ class BeadsTuiApp(LiveReloadMixin, App):
             self.client = BdClient(bd_path=self._bd_path, db_path=self._db_path)
         except BdError:
             self.client = None
+        # Discover .beads/ directory for file-watch live reload.
+        self.WATCH_PATH = self._discover_watch_path()
         self._rebuild_columns()
         self._load_issues()
         self.start_live_reload()
         self.query_one("#issue-table", DataTable).focus()
+
+    @staticmethod
+    def _discover_watch_path() -> Path | None:
+        """Walk up from cwd looking for a .beads/ directory."""
+        cur = Path.cwd()
+        for parent in [cur, *cur.parents]:
+            candidate = parent / ".beads"
+            if candidate.is_dir():
+                return candidate
+        return None
+
+    def _on_change_detected(self) -> None:
+        """File watcher detected a change — do a full reload."""
+        self._load_issues()
 
     # ------------------------------------------------------------------
     # Column management
@@ -490,58 +507,6 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self._update_status_bar()
         # Kick off background comment loading
         if "last_comment" in self._active_columns:
-            self._load_latest_comments()
-
-    async def refresh_data(self) -> None:
-        """LiveReloadMixin callback: incremental refresh with diff."""
-        if self.client is None:
-            return
-        try:
-            new_issues = await self.client.list_issues(all_=True)
-        except BdError:
-            return
-
-        added, changed, removed_ids = diff_issues(self._issues, new_issues)
-        if not added and not changed and not removed_ids:
-            return
-
-        self._issues = new_issues
-        self._apply_filters_and_sort()
-
-        table = self.query_one("#issue-table", DataTable)
-
-        # Remove deleted rows
-        for rid in removed_ids:
-            try:
-                table.remove_row(rid)
-            except Exception:
-                pass
-
-        # Update changed rows
-        changed_ids = {i.id for i in changed}
-        for issue in self._filtered_issues:
-            if issue.id in changed_ids:
-                cells = self._get_row_cells(issue)
-                for idx, col_key in enumerate(self._active_columns):
-                    try:
-                        table.update_cell(issue.id, col_key, cells[idx])
-                    except Exception:
-                        pass
-
-        # For added rows, or if sort order changed, rebuild
-        if added:
-            self._populate_table()
-
-        self._update_status_bar()
-
-        # Invalidate comment cache for changed issues so they get re-fetched
-        for issue in changed:
-            self._last_comments.pop(issue.id, None)
-        for rid in removed_ids:
-            self._last_comments.pop(rid, None)
-
-        # Refresh comments for changed/added issues
-        if "last_comment" in self._active_columns and (added or changed):
             self._load_latest_comments()
 
     @work(exclusive=True, group="comments")
