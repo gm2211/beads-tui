@@ -398,7 +398,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         return None
 
     def _on_change_detected(self) -> None:
-        """File watcher detected a change — do a full reload."""
+        """File watcher detected a write — do a full reload."""
         self._load_issues()
 
     # ------------------------------------------------------------------
@@ -505,7 +505,6 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self._rebuild_columns()
         self._populate_table()
         self._update_status_bar()
-        # Kick off background comment loading
         if "last_comment" in self._active_columns:
             self._load_latest_comments()
 
