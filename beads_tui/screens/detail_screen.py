@@ -264,7 +264,7 @@ class DetailScreen(Screen):
         self._comments: list[Comment] = []
 
     def compose(self) -> ComposeResult:
-        yield Header()
+        yield Header(icon="")
         with VerticalScroll(id="detail-scroll"):
             # Header block
             with Vertical(id="issue-header"):
