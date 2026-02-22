@@ -27,6 +27,35 @@ with open('$LOCAL_PYPROJECT') as f:
         print('0.0.0')
 ")
 
+# Sync __init__.py version with pyproject.toml
+INIT_FILE="beads_tui/__init__.py"
+if [[ -f "$INIT_FILE" ]]; then
+    INIT_VERSION=$(python3 -c "
+import re
+with open('$INIT_FILE') as f:
+    m = re.search(r'^__version__\s*=\s*\"([^\"]+)\"', f.read(), re.MULTILINE)
+    print(m.group(1) if m else '')
+")
+    if [[ -n "$INIT_VERSION" && "$INIT_VERSION" != "$LOCAL_VERSION" ]]; then
+        python3 -c "
+import re
+with open('$INIT_FILE', 'r') as f:
+    content = f.read()
+content = re.sub(
+    r'^(__version__\s*=\s*\")([^\"]+)(\")',
+    r'\g<1>$LOCAL_VERSION\3',
+    content,
+    flags=re.MULTILINE
+)
+with open('$INIT_FILE', 'w') as f:
+    f.write(content)
+"
+        git add "$INIT_FILE"
+        git commit --amend --no-edit --quiet 2>/dev/null || true
+        echo "pre-push: Synced $INIT_FILE version to $LOCAL_VERSION"
+    fi
+fi
+
 # Fetch latest remote main (suppress output)
 git fetch origin main --quiet 2>/dev/null || true
 
