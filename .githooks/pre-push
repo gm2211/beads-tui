@@ -27,35 +27,6 @@ with open('$LOCAL_PYPROJECT') as f:
         print('0.0.0')
 ")
 
-# Sync __init__.py version with pyproject.toml
-INIT_FILE="beads_tui/__init__.py"
-if [[ -f "$INIT_FILE" ]]; then
-    INIT_VERSION=$(python3 -c "
-import re
-with open('$INIT_FILE') as f:
-    m = re.search(r'^__version__\s*=\s*\"([^\"]+)\"', f.read(), re.MULTILINE)
-    print(m.group(1) if m else '')
-")
-    if [[ -n "$INIT_VERSION" && "$INIT_VERSION" != "$LOCAL_VERSION" ]]; then
-        python3 -c "
-import re
-with open('$INIT_FILE', 'r') as f:
-    content = f.read()
-content = re.sub(
-    r'^(__version__\s*=\s*\")([^\"]+)(\")',
-    r'\g<1>$LOCAL_VERSION\3',
-    content,
-    flags=re.MULTILINE
-)
-with open('$INIT_FILE', 'w') as f:
-    f.write(content)
-"
-        git add "$INIT_FILE"
-        git commit --amend --no-edit --quiet 2>/dev/null || true
-        echo "pre-push: Synced $INIT_FILE version to $LOCAL_VERSION"
-    fi
-fi
-
 # Fetch latest remote main (suppress output)
 git fetch origin main --quiet 2>/dev/null || true
 
@@ -91,22 +62,53 @@ else:
 ")
 
 if [[ "$RESULT" == "BLOCKED" ]]; then
-    echo ""
-    echo "=========================================="
-    echo " VERSION NOT BUMPED!"
-    echo "=========================================="
-    echo ""
-    echo " Local version:  $LOCAL_VERSION"
-    echo " Remote main:    $REMOTE_VERSION"
-    echo ""
-    echo " Local version ($LOCAL_VERSION) must be greater than remote main ($REMOTE_VERSION)."
-    echo ""
-    echo " Run:"
-    echo "   python3 -c \"import re; p='pyproject.toml'; t=open(p).read(); v=re.search(r'version\s*=\s*\\\"([^\\\"]+)\\\"',t).group(1); parts=v.split('.'); parts[-1]=str(int(parts[-1])+1); open(p,'w').write(t.replace(v,'.'.join(parts)))\""
-    echo ""
-    echo " Or manually edit pyproject.toml to bump the version."
-    echo ""
-    exit 1
+    # Auto-bump patch version
+    NEW_VERSION=$(python3 -c "
+parts = '$LOCAL_VERSION'.split('.')
+parts[-1] = str(int(parts[-1]) + 1)
+print('.'.join(parts))
+")
+
+    # Update pyproject.toml
+    python3 -c "
+import re
+with open('$LOCAL_PYPROJECT', 'r') as f:
+    content = f.read()
+content = re.sub(
+    r'^(version\s*=\s*\")([^\"]+)(\")',
+    r'\g<1>$NEW_VERSION\3',
+    content,
+    flags=re.MULTILINE
+)
+with open('$LOCAL_PYPROJECT', 'w') as f:
+    f.write(content)
+"
+    git add "$LOCAL_PYPROJECT"
+
+    # Update __init__.py
+    INIT_FILE="beads_tui/__init__.py"
+    if [[ -f "$INIT_FILE" ]]; then
+        python3 -c "
+import re
+with open('$INIT_FILE', 'r') as f:
+    content = f.read()
+content = re.sub(
+    r'^(__version__\s*=\s*\")([^\"]+)(\")',
+    r'\g<1>$NEW_VERSION\3',
+    content,
+    flags=re.MULTILINE
+)
+with open('$INIT_FILE', 'w') as f:
+    f.write(content)
+"
+        git add "$INIT_FILE"
+    fi
+
+    git commit --amend --no-edit --quiet
+    echo "pre-push: Auto-bumped version $LOCAL_VERSION → $NEW_VERSION"
+
+    # Update LOCAL_VERSION for the final success message
+    LOCAL_VERSION="$NEW_VERSION"
 fi
 
 echo "pre-push: Version check passed ($LOCAL_VERSION > $REMOTE_VERSION)."
