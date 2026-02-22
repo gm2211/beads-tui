@@ -178,7 +178,8 @@ class DetailScreen(Screen):
         Binding("s", "change_status", "Status"),
         Binding("a", "change_assignee", "Assignee"),
         Binding("e", "edit_title", "Edit title"),
-        Binding("d", "edit_description", "Description"),
+        Binding("d", "delete_issue", "Delete"),
+        Binding("D", "edit_description", "Description", key_display="D"),
         Binding("g", "goto_dep", "Go to dep"),
         Binding("x", "delete_comment", "Del comment"),
         Binding("o", "noop", "Sort", show=False),
@@ -740,6 +741,23 @@ class DetailScreen(Screen):
             await client.update_issue(self._issue.id, description=result)
             self.notify("Description updated")
             self._load_issue()
+
+    @work
+    async def action_delete_issue(self) -> None:
+        if self._issue is None:
+            return
+        from ..widgets.confirm_modal import ConfirmModal
+        confirmed = await self.app.push_screen_wait(
+            ConfirmModal("Delete Issue", f"Permanently delete [b]{self._issue.id}[/b]?\nThis cannot be undone.")
+        )
+        if confirmed:
+            client: BdClient = self.app.client  # type: ignore[attr-defined]
+            try:
+                await client.delete_issue(self._issue.id)
+                self.app.notify(f"Deleted {self._issue.id}")
+                self.app.pop_screen()
+            except BdError as exc:
+                self.notify(f"Failed to delete: {exc}", severity="error")
 
     @work
     async def action_goto_dep(self) -> None:

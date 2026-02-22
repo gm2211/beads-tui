@@ -407,6 +407,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         Binding("p", "quick_priority", "Priority", show=False),
         Binding("s", "quick_status", "Status", show=False),
         Binding("x", "quick_close", "Close", show=False),
+        Binding("d", "quick_delete", "Delete", show=False),
         Binding("i", "toggle_id_prefix", "Toggle ID", show=False),
         Binding("t", "toggle_tree", "Tree"),
     ]
@@ -941,6 +942,23 @@ class BeadsTuiApp(LiveReloadMixin, App):
             self._load_issues()
         except BdError as e:
             self.notify(f"Error: {e}", severity="error")
+
+    @work
+    async def action_quick_delete(self) -> None:
+        issue = self._get_selected_issue()
+        if not issue or not self.client:
+            return
+        from beads_tui.widgets.confirm_modal import ConfirmModal
+        confirmed = await self.push_screen_wait(
+            ConfirmModal("Delete Issue", f"Permanently delete [b]{issue.id}[/b]?\nThis cannot be undone.")
+        )
+        if confirmed:
+            try:
+                await self.client.delete_issue(issue.id)
+                self.notify(f"Deleted {issue.id}")
+                self._load_issues()
+            except BdError as e:
+                self.notify(f"Error: {e}", severity="error")
 
     def action_toggle_id_prefix(self) -> None:
         self._strip_id_prefix = not self._strip_id_prefix

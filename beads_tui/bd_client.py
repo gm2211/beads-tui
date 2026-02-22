@@ -262,6 +262,9 @@ class BdClient:
             args += ["--reason", reason]
         await self._run_bd(*args, parse_json=False)
 
+    async def delete_issue(self, issue_id: str) -> None:
+        await self._run_bd("delete", issue_id, "--force", parse_json=False)
+
     async def reopen_issue(self, issue_id: str) -> None:
         await self._run_bd("reopen", issue_id, parse_json=False)
 
