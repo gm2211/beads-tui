@@ -55,7 +55,7 @@ class StatusBar(Widget):
 
     def _update_left(self) -> None:
         label = self.view_name
-        if self.filter_active:
+        if self.filter_active and "filter" not in label.lower():
             label += "  filtered"
         self.query_one("#status-left", Static).update(label)
 

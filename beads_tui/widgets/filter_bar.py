@@ -22,14 +22,6 @@ class CheckboxFilterModal(ModalScreen[set[str] | None]):
 
     BINDINGS = [
         Binding("escape", "cancel", "Cancel"),
-        Binding("j", "next_item", "Down", show=False),
-        Binding("k", "prev_item", "Up", show=False),
-        Binding("down", "next_item", "Down", show=False),
-        Binding("up", "prev_item", "Up", show=False),
-        Binding("l", "next_item", "Right", show=False),
-        Binding("h", "prev_item", "Left", show=False),
-        Binding("right", "next_item", "Right", show=False),
-        Binding("left", "prev_item", "Left", show=False),
     ]
 
     DEFAULT_CSS = """
@@ -43,6 +35,7 @@ class CheckboxFilterModal(ModalScreen[set[str] | None]):
         self._title = title
         self._choices = choices
         self._current = set(current)
+        self._focus_idx: int = 0
 
     def compose(self) -> ComposeResult:
         with Vertical(id="status-modal"):
@@ -54,6 +47,12 @@ class CheckboxFilterModal(ModalScreen[set[str] | None]):
                 yield Button("None", id="status-none-btn")
                 yield Button("Apply", id="status-apply-btn")
                 yield Button("Cancel", id="status-cancel-btn")
+
+    def on_mount(self) -> None:
+        items = self._focusable_items()
+        if items:
+            items[0].focus()
+            self._focus_idx = 0
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         bid = event.button.id
@@ -80,25 +79,33 @@ class CheckboxFilterModal(ModalScreen[set[str] | None]):
             items.append(btn)
         return items
 
-    def action_next_item(self) -> None:
+    def _sync_focus_idx(self) -> None:
+        """Sync internal index with actual focus (e.g. after mouse click)."""
         items = self._focusable_items()
-        if not items:
-            return
-        try:
-            idx = items.index(self.focused)
-            items[(idx + 1) % len(items)].focus()
-        except (ValueError, TypeError):
-            items[0].focus()
+        focused = self.focused
+        for i, item in enumerate(items):
+            if item is focused:
+                self._focus_idx = i
+                return
 
-    def action_prev_item(self) -> None:
+    def _move_focus(self, direction: int) -> None:
         items = self._focusable_items()
         if not items:
             return
-        try:
-            idx = items.index(self.focused)
-            items[(idx - 1) % len(items)].focus()
-        except (ValueError, TypeError):
-            items[-1].focus()
+        self._sync_focus_idx()
+        self._focus_idx = (self._focus_idx + direction) % len(items)
+        items[self._focus_idx].focus()
+
+    def on_key(self, event) -> None:
+        key = event.key
+        if key in ("down", "j", "right", "l"):
+            self._move_focus(1)
+            event.stop()
+            event.prevent_default()
+        elif key in ("up", "k", "left", "h"):
+            self._move_focus(-1)
+            event.stop()
+            event.prevent_default()
 
     def on_click(self, event: Click) -> None:
         if self is event.widget:
