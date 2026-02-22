@@ -294,6 +294,15 @@ class BdClient:
         await self._run_bd("label", "remove", issue_id, label, parse_json=False)
 
     # ------------------------------------------------------------------
+    # Graph
+    # ------------------------------------------------------------------
+
+    async def graph_all(self) -> list[dict]:
+        """Fetch the full dependency graph (bd graph --all --json)."""
+        data = await self._run_bd("graph", "--all")
+        return data or []
+
+    # ------------------------------------------------------------------
     # Status
     # ------------------------------------------------------------------
 

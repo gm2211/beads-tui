@@ -119,6 +119,74 @@ DEFAULT_COLUMNS = ["id", "priority", "status", "assignee", "title", "last_commen
 
 
 # ---------------------------------------------------------------------------
+# Tree-view helpers
+# ---------------------------------------------------------------------------
+
+def _build_tree_order(
+    issues: list[Issue],
+    graph_data: list[dict],
+) -> list[tuple[Issue, str]]:
+    """Build tree-ordered issue list with ASCII prefix strings.
+
+    Returns list of (issue, prefix) tuples where prefix contains
+    tree-drawing characters (e.g. "├── ", "│   └── ").
+    """
+    children_map: dict[str, list[str]] = {}
+    has_parent: set[str] = set()
+
+    for entry in graph_data:
+        deps = entry.get("Dependencies") or []
+        for dep in deps:
+            parent_id = dep.get("depends_on_id", "")
+            child_id = dep.get("issue_id", "")
+            if parent_id and child_id:
+                children_map.setdefault(parent_id, []).append(child_id)
+                has_parent.add(child_id)
+
+    issue_map: dict[str, Issue] = {i.id: i for i in issues}
+    visible_ids = set(issue_map.keys())
+
+    roots = [i for i in issues if i.id not in has_parent]
+    roots.sort(key=lambda i: i.priority)
+
+    result: list[tuple[Issue, str]] = []
+    visited: set[str] = set()
+
+    def dfs(issue_id: str, prefix: str, is_last: bool, depth: int) -> None:
+        if issue_id in visited or issue_id not in issue_map:
+            return
+        visited.add(issue_id)
+
+        issue = issue_map[issue_id]
+
+        if depth == 0:
+            tree_prefix = ""
+            next_prefix = ""
+        else:
+            connector = "└── " if is_last else "├── "
+            tree_prefix = prefix + connector
+            next_prefix = prefix + ("    " if is_last else "│   ")
+
+        result.append((issue, tree_prefix))
+
+        child_ids = [c for c in children_map.get(issue_id, []) if c in visible_ids]
+        child_ids.sort(key=lambda cid: issue_map[cid].priority if cid in issue_map else 99)
+
+        for i, child_id in enumerate(child_ids):
+            is_last_child = (i == len(child_ids) - 1)
+            dfs(child_id, next_prefix, is_last_child, depth + 1)
+
+    for root in roots:
+        dfs(root.id, "", True, 0)
+
+    for issue in issues:
+        if issue.id not in visited:
+            result.append((issue, ""))
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Sort helpers
 # ---------------------------------------------------------------------------
 
@@ -340,6 +408,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         Binding("s", "quick_status", "Status", show=False),
         Binding("x", "quick_close", "Close", show=False),
         Binding("i", "toggle_id_prefix", "Toggle ID", show=False),
+        Binding("t", "toggle_tree", "Tree"),
     ]
 
     def __init__(
@@ -361,6 +430,9 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self._sort_reverse: bool = False
         self._quit_pending: bool = False
         self._strip_id_prefix: bool = True
+        self._tree_mode: bool = False
+        self._tree_prefixes: dict[str, str] = {}
+        self._graph_data: list[dict] = []
         self._last_comments: dict[str, str] = {}  # issue_id -> latest comment preview
         self._current_filters: dict = {
             "search": None,
@@ -480,6 +552,13 @@ class BeadsTuiApp(LiveReloadMixin, App):
                 val = Text(preview, style="dim") if preview else Text("")
             elif col_key == "id" and self._strip_id_prefix:
                 val = _styled(_short_id(issue.id), "bold")
+            elif col_key == "title" and self._tree_mode:
+                prefix = self._tree_prefixes.get(issue.id, "")
+                _, style = _PRIORITY_STYLES.get(issue.priority, ("", ""))
+                if prefix:
+                    val = Text.assemble(Text(prefix, style="#666699"), Text(issue.title, style=style))
+                else:
+                    val = _styled(issue.title, style)
             else:
                 col_def = AVAILABLE_COLUMNS.get(col_key)
                 val = col_def.getter(issue) if col_def else Text("")
@@ -500,6 +579,11 @@ class BeadsTuiApp(LiveReloadMixin, App):
             issues = await self.client.list_issues(all_=True)
         except BdError:
             issues = []
+        if self._tree_mode:
+            try:
+                self._graph_data = await self.client.graph_all()
+            except BdError:
+                self._graph_data = []
         self._issues = issues
         self._apply_filters_and_sort()
         self._rebuild_columns()
@@ -580,13 +664,18 @@ class BeadsTuiApp(LiveReloadMixin, App):
         if types is not None:
             filtered = [i for i in filtered if i.issue_type in types]
 
-        # Sort
-        filtered.sort(
-            key=lambda i: _sort_key_for_column(self._sort_column, i),
-            reverse=self._sort_reverse,
-        )
-
-        self._filtered_issues = filtered
+        # Sort or tree-order
+        if self._tree_mode and self._graph_data:
+            tree_ordered = _build_tree_order(filtered, self._graph_data)
+            self._filtered_issues = [issue for issue, _ in tree_ordered]
+            self._tree_prefixes = {issue.id: prefix for issue, prefix in tree_ordered}
+        else:
+            filtered.sort(
+                key=lambda i: _sort_key_for_column(self._sort_column, i),
+                reverse=self._sort_reverse,
+            )
+            self._filtered_issues = filtered
+            self._tree_prefixes = {}
 
     def _populate_table(self) -> None:
         table = self.query_one("#issue-table", DataTable)
@@ -859,3 +948,12 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self._populate_table()
         label = "short" if self._strip_id_prefix else "full"
         self.notify(f"ID format: {label}")
+
+    def action_toggle_tree(self) -> None:
+        self._tree_mode = not self._tree_mode
+        self.clear_notifications()
+        label = "ON" if self._tree_mode else "OFF"
+        self.notify(f"Tree view {label}", timeout=1.5)
+        if not self._tree_mode:
+            self._tree_prefixes = {}
+        self._load_issues()
