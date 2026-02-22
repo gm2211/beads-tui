@@ -8,6 +8,8 @@ from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Static
 
+from beads_tui import __version__
+
 
 class StatusBar(Widget):
     """Bottom status bar showing view name, issue counts, and refresh time."""
@@ -67,7 +69,12 @@ class StatusBar(Widget):
         self.query_one("#status-center", Static).update(text)
 
     def _update_right(self) -> None:
-        self.query_one("#status-right", Static).update(self.last_refresh)
+        version = f"v{__version__}"
+        if self.last_refresh:
+            text = f"{version} | {self.last_refresh}"
+        else:
+            text = version
+        self.query_one("#status-right", Static).update(text)
 
     def watch_issue_count(self, value: int) -> None:
         self._update_center()
