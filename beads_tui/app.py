@@ -132,7 +132,7 @@ AVAILABLE_COLUMNS: dict[str, ColumnDef] = {
     "status": ColumnDef(key="status", label="S", getter=lambda i: _status_cell(i.status), width=7),
     "type": ColumnDef(key="type", label="T", getter=lambda i: _type_cell(i.issue_type), width=7),
     "title": ColumnDef(key="title", label="Title", getter=lambda i: _title_cell(i.title, i.priority), width=None),
-    "assignee": ColumnDef(key="assignee", label="Assignee", getter=lambda i: _styled(i.assignee or "", "bold"), width=10),
+    "assignee": ColumnDef(key="assignee", label="A", getter=lambda i: _styled(i.assignee or "", "bold"), width=8),
     "updated": ColumnDef(key="updated", label="Updated", getter=lambda i: _styled(_short_date(i.updated_at), "bold"), width=12),
     "created": ColumnDef(key="created", label="Created", getter=lambda i: _styled(_short_date(i.created_at), "bold"), width=12),
     "labels": ColumnDef(key="labels", label="Labels", getter=lambda i: Text(", ".join(i.labels)), width=15),
