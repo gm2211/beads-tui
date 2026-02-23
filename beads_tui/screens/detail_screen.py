@@ -681,9 +681,12 @@ class DetailScreen(Screen):
         result = await self.app.push_screen_wait(PriorityPicker(current=self._issue.priority))
         if result is not None:
             client: BdClient = self.app.client  # type: ignore[attr-defined]
-            await client.update_issue(self._issue.id, priority=result)
-            self.notify(f"Priority updated to P{result}")
-            self._load_issue()
+            try:
+                await client.update_issue(self._issue.id, priority=result)
+                self.notify(f"Priority updated to P{result}")
+                self._load_issue()
+            except BdError as e:
+                self.notify(f"Error: {e}", severity="error")
 
     @work
     async def action_change_status(self) -> None:
@@ -693,12 +696,15 @@ class DetailScreen(Screen):
         result = await self.app.push_screen_wait(StatusPicker(current=self._issue.status))
         if result is not None:
             client: BdClient = self.app.client  # type: ignore[attr-defined]
-            if result == "closed":
-                await client.close_issue(self._issue.id)
-            else:
-                await client.update_issue(self._issue.id, status=result)
-            self.notify(f"Status updated to {result}")
-            self._load_issue()
+            try:
+                if result == "closed":
+                    await client.close_issue(self._issue.id)
+                else:
+                    await client.update_issue(self._issue.id, status=result)
+                self.notify(f"Status updated to {result}")
+                self._load_issue()
+            except BdError as e:
+                self.notify(f"Error: {e}", severity="error")
 
     @work
     async def action_change_assignee(self) -> None:
@@ -710,9 +716,12 @@ class DetailScreen(Screen):
         )
         if result is not None:
             client: BdClient = self.app.client  # type: ignore[attr-defined]
-            await client.update_issue(self._issue.id, assignee=result)
-            self.notify("Assignee updated")
-            self._load_issue()
+            try:
+                await client.update_issue(self._issue.id, assignee=result)
+                self.notify("Assignee updated")
+                self._load_issue()
+            except BdError as e:
+                self.notify(f"Error: {e}", severity="error")
 
     @work
     async def action_edit_title(self) -> None:
@@ -724,9 +733,12 @@ class DetailScreen(Screen):
         )
         if result is not None:
             client: BdClient = self.app.client  # type: ignore[attr-defined]
-            await client.update_issue(self._issue.id, title=result)
-            self.notify("Title updated")
-            self._load_issue()
+            try:
+                await client.update_issue(self._issue.id, title=result)
+                self.notify("Title updated")
+                self._load_issue()
+            except BdError as e:
+                self.notify(f"Error: {e}", severity="error")
 
     @work
     async def action_edit_description(self) -> None:
@@ -738,9 +750,12 @@ class DetailScreen(Screen):
         )
         if result is not None:
             client: BdClient = self.app.client  # type: ignore[attr-defined]
-            await client.update_issue(self._issue.id, description=result)
-            self.notify("Description updated")
-            self._load_issue()
+            try:
+                await client.update_issue(self._issue.id, description=result)
+                self.notify("Description updated")
+                self._load_issue()
+            except BdError as e:
+                self.notify(f"Error: {e}", severity="error")
 
     @work
     async def action_delete_issue(self) -> None:
