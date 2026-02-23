@@ -402,6 +402,8 @@ class BeadsTuiApp(LiveReloadMixin, App):
         Binding("l", "scroll_right", "Right", show=False),
         Binding("enter", "select_issue", "Open", show=False),
         Binding("A", "toggle_all", "Toggle All", key_display="A"),
+        Binding("space", "toggle_select", "Select", show=False),
+        Binding("V", "select_all_visible", "Select All", show=False),
         Binding("o", "sort_picker", "Sort"),
         Binding("numbersign", "column_menu", "Columns", key_display="#"),
         Binding("p", "quick_priority", "Priority", show=False),
@@ -435,6 +437,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self._tree_prefixes: dict[str, str] = {}
         self._graph_data: list[dict] = []
         self._last_comments: dict[str, str] = {}  # issue_id -> latest comment preview
+        self._selected_ids: set[str] = set()
         self._current_filters: dict = {
             "search": None,
             "statuses": {"open", "in_progress"} if not show_all else None,
@@ -566,6 +569,9 @@ class BeadsTuiApp(LiveReloadMixin, App):
             if idx > 0:
                 val = Text.assemble(sep, val) if isinstance(val, Text) else Text.assemble(sep, str(val))
             cells.append(val)
+        # Prepend selection marker to first cell
+        marker = Text("\u2713 ", style="bold green") if issue.id in self._selected_ids else Text("  ")
+        cells[0] = Text.assemble(marker, cells[0]) if isinstance(cells[0], Text) else Text.assemble(marker, str(cells[0]))
         return cells
 
     # ------------------------------------------------------------------
@@ -586,6 +592,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
             except BdError:
                 self._graph_data = []
         self._issues = issues
+        self._selected_ids &= {i.id for i in issues}
         self._apply_filters_and_sort()
         self._rebuild_columns()
         self._populate_table()
@@ -711,6 +718,8 @@ class BeadsTuiApp(LiveReloadMixin, App):
         else:
             view = "Filtered"
         status_bar.view_name = view
+        if self._selected_ids:
+            status_bar.view_name = f"{len(self._selected_ids)} selected"
 
     # ------------------------------------------------------------------
     # Event handlers
@@ -723,6 +732,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
 
     @on(FilterBar.FiltersChanged)
     def _on_filters_changed(self, event: FilterBar.FiltersChanged) -> None:
+        self._selected_ids.clear()
         self._current_filters = {
             "search": event.search or None,
             "statuses": event.statuses,
@@ -898,63 +908,115 @@ class BeadsTuiApp(LiveReloadMixin, App):
                 return issue
         return None
 
+    def _get_action_issues(self) -> list[Issue]:
+        """Return selected issues, or just the cursor issue if none selected."""
+        if self._selected_ids:
+            return [i for i in self._filtered_issues if i.id in self._selected_ids]
+        issue = self._get_selected_issue()
+        return [issue] if issue else []
+
+    def action_toggle_select(self) -> None:
+        issue = self._get_selected_issue()
+        if not issue:
+            return
+        if issue.id in self._selected_ids:
+            self._selected_ids.discard(issue.id)
+        else:
+            self._selected_ids.add(issue.id)
+        self._populate_table()
+        self._update_status_bar()
+        self.query_one("#issue-table", DataTable).action_cursor_down()
+
+    def action_select_all_visible(self) -> None:
+        visible_ids = {i.id for i in self._filtered_issues}
+        if visible_ids.issubset(self._selected_ids):
+            self._selected_ids -= visible_ids
+        else:
+            self._selected_ids |= visible_ids
+        self._populate_table()
+        self._update_status_bar()
+
     @work
     async def action_quick_priority(self) -> None:
-        issue = self._get_selected_issue()
-        if not issue or not self.client:
+        issues = self._get_action_issues()
+        if not issues or not self.client:
             return
         from .widgets.priority_picker import PriorityPicker
-        result = await self.push_screen_wait(PriorityPicker(current=issue.priority))
+        current = issues[0].priority if len(issues) == 1 else 2
+        result = await self.push_screen_wait(PriorityPicker(current=current))
         if result is not None:
             try:
-                await self.client.update_issue(issue.id, priority=result)
-                self.notify(f"P{result} set on {issue.id}")
+                for issue in issues:
+                    await self.client.update_issue(issue.id, priority=result)
+                label = f"P{result} set on {len(issues)} issues" if len(issues) > 1 else f"P{result} set on {issues[0].id}"
+                self.notify(label)
+                self._selected_ids.clear()
                 self._load_issues()
             except BdError as e:
                 self.notify(f"Error: {e}", severity="error")
 
     @work
     async def action_quick_status(self) -> None:
-        issue = self._get_selected_issue()
-        if not issue or not self.client:
+        issues = self._get_action_issues()
+        if not issues or not self.client:
             return
         from .widgets.status_picker import StatusPicker
-        result = await self.push_screen_wait(StatusPicker(current=issue.status))
+        current = issues[0].status if len(issues) == 1 else "open"
+        result = await self.push_screen_wait(StatusPicker(current=current))
         if result is not None:
             try:
-                if result == "closed":
-                    await self.client.close_issue(issue.id)
-                else:
-                    await self.client.update_issue(issue.id, status=result)
-                self.notify(f"{result} set on {issue.id}")
+                for issue in issues:
+                    if result == "closed":
+                        await self.client.close_issue(issue.id)
+                    else:
+                        await self.client.update_issue(issue.id, status=result)
+                label = f"{result} set on {len(issues)} issues" if len(issues) > 1 else f"{result} set on {issues[0].id}"
+                self.notify(label)
+                self._selected_ids.clear()
                 self._load_issues()
             except BdError as e:
                 self.notify(f"Error: {e}", severity="error")
 
+    @work
     async def action_quick_close(self) -> None:
-        issue = self._get_selected_issue()
-        if not issue or not self.client:
+        issues = self._get_action_issues()
+        if not issues or not self.client:
             return
+        if len(issues) > 1:
+            from beads_tui.widgets.confirm_modal import ConfirmModal
+            confirmed = await self.push_screen_wait(
+                ConfirmModal("Bulk Close", f"Close [b]{len(issues)}[/b] issues?")
+            )
+            if not confirmed:
+                return
         try:
-            await self.client.close_issue(issue.id)
-            self.notify(f"Closed {issue.id}")
+            for issue in issues:
+                await self.client.close_issue(issue.id)
+            label = f"Closed {len(issues)} issues" if len(issues) > 1 else f"Closed {issues[0].id}"
+            self.notify(label)
+            self._selected_ids.clear()
             self._load_issues()
         except BdError as e:
             self.notify(f"Error: {e}", severity="error")
 
     @work
     async def action_quick_delete(self) -> None:
-        issue = self._get_selected_issue()
-        if not issue or not self.client:
+        issues = self._get_action_issues()
+        if not issues or not self.client:
             return
         from beads_tui.widgets.confirm_modal import ConfirmModal
-        confirmed = await self.push_screen_wait(
-            ConfirmModal("Delete Issue", f"Permanently delete [b]{issue.id}[/b]?\nThis cannot be undone.")
-        )
+        if len(issues) > 1:
+            msg = f"Permanently delete [b]{len(issues)}[/b] issues?\nThis cannot be undone."
+        else:
+            msg = f"Permanently delete [b]{issues[0].id}[/b]?\nThis cannot be undone."
+        confirmed = await self.push_screen_wait(ConfirmModal("Delete Issue", msg))
         if confirmed:
             try:
-                await self.client.delete_issue(issue.id)
-                self.notify(f"Deleted {issue.id}")
+                for issue in issues:
+                    await self.client.delete_issue(issue.id)
+                label = f"Deleted {len(issues)} issues" if len(issues) > 1 else f"Deleted {issues[0].id}"
+                self.notify(label)
+                self._selected_ids.clear()
                 self._load_issues()
             except BdError as e:
                 self.notify(f"Error: {e}", severity="error")
