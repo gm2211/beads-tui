@@ -1018,8 +1018,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
             if not confirmed:
                 return
         try:
-            for issue in issues:
-                await self.client.close_issue(issue.id)
+            await self.client.close_issue(*(i.id for i in issues))
             label = f"Closed {len(issues)} issues" if len(issues) > 1 else f"Closed {issues[0].id}"
             self.notify(label)
             self._selected_ids.clear()
@@ -1040,8 +1039,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         confirmed = await self.push_screen_wait(ConfirmModal("Delete Issue", msg))
         if confirmed:
             try:
-                for issue in issues:
-                    await self.client.delete_issue(issue.id)
+                await self.client.delete_issue(*(i.id for i in issues))
                 label = f"Deleted {len(issues)} issues" if len(issues) > 1 else f"Deleted {issues[0].id}"
                 self.notify(label)
                 self._selected_ids.clear()

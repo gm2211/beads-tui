@@ -256,14 +256,14 @@ class BdClient:
 
         await self._run_bd(*args, parse_json=False)
 
-    async def close_issue(self, issue_id: str, reason: str | None = None) -> None:
-        args: list[str] = ["close", issue_id]
+    async def close_issue(self, *issue_ids: str, reason: str | None = None) -> None:
+        args: list[str] = ["close", *issue_ids]
         if reason:
             args += ["--reason", reason]
         await self._run_bd(*args, parse_json=False)
 
-    async def delete_issue(self, issue_id: str) -> None:
-        await self._run_bd("delete", issue_id, "--force", parse_json=False)
+    async def delete_issue(self, *issue_ids: str) -> None:
+        await self._run_bd("delete", *issue_ids, "--force", parse_json=False)
 
     async def reopen_issue(self, issue_id: str) -> None:
         await self._run_bd("reopen", issue_id, parse_json=False)
