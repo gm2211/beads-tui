@@ -44,21 +44,9 @@ class ConfirmModal(ModalScreen[bool | None]):
     ConfirmModal > #confirm-dialog > #confirm-buttons > Button {
         margin: 0 1;
         min-width: 12;
-        background: #333350 !important;
-        color: #6c7086 !important;
-        text-style: none !important;
-        border: none !important;
     }
-    ConfirmModal > #confirm-dialog > #confirm-buttons > Button:focus {
-        background: #89b4fa !important;
-        color: #1e1e2e !important;
-        text-style: bold !important;
-        border: none !important;
-    }
-    ConfirmModal > #confirm-dialog > #confirm-buttons > #btn-confirm:focus {
-        background: #ff6b6b !important;
-        color: #1e1e2e !important;
-        text-style: bold !important;
+    ConfirmModal > #confirm-dialog > #confirm-buttons > #btn-confirm {
+        color: #ff6b6b;
     }
     """
 
@@ -76,8 +64,8 @@ class ConfirmModal(ModalScreen[bool | None]):
             yield Static(self._title, id="confirm-title")
             yield Static(self._body, id="confirm-body", markup=True)
             with Horizontal(id="confirm-buttons"):
-                yield Button("Cancel", variant="default", id="btn-cancel")
-                yield Button("Confirm", variant="error", id="btn-confirm")
+                yield Button("Cancel", id="btn-cancel")
+                yield Button("Confirm", id="btn-confirm")
 
     def on_mount(self) -> None:
         self.query_one("#btn-cancel", Button).focus()
