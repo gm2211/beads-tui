@@ -35,11 +35,11 @@ _PRIORITY_STYLES: dict[int, tuple[str, str]] = {
 }
 
 _STATUS_DISPLAY: dict[str, tuple[str, str]] = {
-    "open": ("Open", "bold white on #2d6a2d"),
-    "in_progress": ("In Prog", "bold white on #1a6a6a"),
-    "blocked": ("Blocked", "bold white on #8b2020"),
-    "deferred": ("Deferred", "bold white on #2d2d8b"),
-    "closed": ("Closed", "white on grey37"),
+    "open": ("OPEN", "bold white on #2d6a2d"),
+    "in_progress": ("PROG", "bold white on #1a6a6a"),
+    "blocked": ("BLOCK", "bold white on #8b2020"),
+    "deferred": ("DEFER", "bold white on #2d2d8b"),
+    "closed": ("CLOSE", "white on grey37"),
 }
 
 _TYPE_STYLES: dict[str, str] = {
@@ -48,6 +48,14 @@ _TYPE_STYLES: dict[str, str] = {
     "task": "#a6e3a1",
     "epic": "#cba6f7",
     "chore": "#f9e2af",
+}
+
+_TYPE_LABELS: dict[str, str] = {
+    "bug": "bug",
+    "feature": "feat",
+    "task": "task",
+    "epic": "epic",
+    "chore": "chore",
 }
 
 
@@ -68,8 +76,10 @@ def _status_cell(status: str) -> Text:
 def _type_cell(issue_type: str) -> Text:
     if not issue_type:
         return Text("")
-    color = _TYPE_STYLES.get(issue_type.lower(), "#6c7086")
-    return Text(issue_type, style=f"bold {color}")
+    key = issue_type.lower()
+    color = _TYPE_STYLES.get(key, "#6c7086")
+    label = _TYPE_LABELS.get(key, issue_type)
+    return Text(label, style=f"bold {color}")
 
 
 def _title_cell(title: str, priority: int) -> Text:
@@ -119,8 +129,8 @@ class ColumnDef:
 AVAILABLE_COLUMNS: dict[str, ColumnDef] = {
     "id": ColumnDef(key="id", label="ID", getter=lambda i: _styled(i.id, "bold"), width=11),
     "priority": ColumnDef(key="priority", label="P", getter=lambda i: _priority_cell(i.priority), width=4),
-    "status": ColumnDef(key="status", label="Status", getter=lambda i: _status_cell(i.status), width=9),
-    "type": ColumnDef(key="type", label="Type", getter=lambda i: _type_cell(i.issue_type), width=9),
+    "status": ColumnDef(key="status", label="S", getter=lambda i: _status_cell(i.status), width=7),
+    "type": ColumnDef(key="type", label="T", getter=lambda i: _type_cell(i.issue_type), width=7),
     "title": ColumnDef(key="title", label="Title", getter=lambda i: _title_cell(i.title, i.priority), width=None),
     "assignee": ColumnDef(key="assignee", label="Assignee", getter=lambda i: _styled(i.assignee or "", "bold"), width=10),
     "updated": ColumnDef(key="updated", label="Updated", getter=lambda i: _styled(_short_date(i.updated_at), "bold"), width=12),
