@@ -127,7 +127,7 @@ _STATUS_CHOICES: list[tuple[str, str]] = [
     ("Closed", "closed"),
 ]
 
-_DEFAULT_STATUSES: frozenset[str] = frozenset({"open", "in_progress", "blocked"})
+_DEFAULT_STATUSES: frozenset[str] = frozenset({"open", "in_progress"})
 
 _ABBREV: dict[str, str] = {
     "open": "Open",
