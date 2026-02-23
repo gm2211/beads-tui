@@ -239,8 +239,12 @@ class FilterBar(Widget):
     _selected_priorities: set[str]
     _selected_types: set[str]
 
+    def __init__(self, initial_statuses: set[str] | None = None, **kwargs) -> None:
+        super().__init__(**kwargs)
+        self._initial_statuses = initial_statuses
+
     def compose(self) -> ComposeResult:
-        self._selected_statuses = set(_DEFAULT_STATUSES)
+        self._selected_statuses = set(self._initial_statuses) if self._initial_statuses is not None else set(_DEFAULT_STATUSES)
         self._selected_priorities = set(_DEFAULT_PRIORITIES)
         self._selected_types = set(_DEFAULT_TYPES)
         with Horizontal(id="filter-bar"):

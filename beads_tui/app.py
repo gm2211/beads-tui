@@ -472,7 +472,8 @@ class BeadsTuiApp(LiveReloadMixin, App):
 
     def compose(self) -> ComposeResult:
         yield Header(icon="")
-        yield FilterBar()
+        all_statuses = {"open", "in_progress", "blocked", "deferred", "closed"}
+        yield FilterBar(initial_statuses=all_statuses if self._show_all else None)
         yield DataTable(id="issue-table", cursor_type="row", zebra_stripes=True, cell_padding=1)
         yield StatusBar()
 
