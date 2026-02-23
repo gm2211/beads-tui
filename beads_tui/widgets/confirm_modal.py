@@ -45,6 +45,9 @@ class ConfirmModal(ModalScreen[bool | None]):
         margin: 0 1;
         min-width: 12;
     }
+    ConfirmModal > #confirm-dialog > #confirm-buttons > Button:focus {
+        text-style: bold reverse;
+    }
     """
 
     BINDINGS = [
