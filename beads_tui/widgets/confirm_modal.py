@@ -46,7 +46,22 @@ class ConfirmModal(ModalScreen[bool | None]):
         min-width: 12;
     }
     ConfirmModal > #confirm-dialog > #confirm-buttons > #btn-delete {
-        color: #ff6b6b;
+        background: #a03030 !important;
+        color: #ff6b6b !important;
+        border-top: tall #c04040 !important;
+        border-bottom: tall #801515 !important;
+    }
+    ConfirmModal > #confirm-dialog > #confirm-buttons > #btn-delete:focus {
+        background: #ff4444 !important;
+        color: #ffffff !important;
+        text-style: bold !important;
+        border-top: tall #ff6666 !important;
+        border-bottom: tall #cc2222 !important;
+    }
+    ConfirmModal > #confirm-dialog > #confirm-buttons > #btn-cancel:focus {
+        background: #89b4fa !important;
+        color: #1e1e2e !important;
+        text-style: bold !important;
     }
     """
 
