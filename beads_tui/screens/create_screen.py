@@ -47,6 +47,7 @@ class CreateScreen(ModalScreen[dict | None]):
         max-width: 90%;
         height: auto;
         max-height: 85%;
+        overflow-y: auto;
         background: $surface;
         border: tall $primary;
         padding: 1 2;
@@ -83,7 +84,7 @@ class CreateScreen(ModalScreen[dict | None]):
     }
 
     CreateScreen > #dialog TextArea {
-        height: 8;
+        height: 5;
         margin-bottom: 1;
     }
 
