@@ -44,21 +44,21 @@ class ConfirmModal(ModalScreen[bool | None]):
     ConfirmModal > #confirm-dialog > #confirm-buttons > Button {
         margin: 0 1;
         min-width: 12;
-        background: #333350;
-        color: #6c7086;
-        text-style: none;
-        border: none;
+        background: #333350 !important;
+        color: #6c7086 !important;
+        text-style: none !important;
+        border: none !important;
     }
     ConfirmModal > #confirm-dialog > #confirm-buttons > Button:focus {
-        background: #89b4fa;
-        color: #1e1e2e;
-        text-style: bold;
-        border: none;
+        background: #89b4fa !important;
+        color: #1e1e2e !important;
+        text-style: bold !important;
+        border: none !important;
     }
     ConfirmModal > #confirm-dialog > #confirm-buttons > #btn-confirm:focus {
-        background: #ff6b6b;
-        color: #1e1e2e;
-        text-style: bold;
+        background: #ff6b6b !important;
+        color: #1e1e2e !important;
+        text-style: bold !important;
     }
     """
 
