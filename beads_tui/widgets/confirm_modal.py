@@ -20,6 +20,7 @@ class ConfirmModal(ModalScreen[bool | None]):
         width: 50;
         max-width: 80%;
         height: auto;
+        max-height: 10;
         padding: 1 2;
         background: #1e1e2e;
         border: double #ff8c00;
