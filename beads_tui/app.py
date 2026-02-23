@@ -117,7 +117,7 @@ class ColumnDef:
 
 
 AVAILABLE_COLUMNS: dict[str, ColumnDef] = {
-    "id": ColumnDef(key="id", label="ID", getter=lambda i: _styled(i.id, "bold"), width=12),
+    "id": ColumnDef(key="id", label="ID", getter=lambda i: _styled(i.id, "bold"), width=16),
     "priority": ColumnDef(key="priority", label="P", getter=lambda i: _priority_cell(i.priority), width=4),
     "status": ColumnDef(key="status", label="Status", getter=lambda i: _status_cell(i.status), width=10),
     "type": ColumnDef(key="type", label="Type", getter=lambda i: _type_cell(i.issue_type), width=10),
@@ -463,7 +463,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
     def compose(self) -> ComposeResult:
         yield Header(icon="")
         yield FilterBar()
-        yield DataTable(id="issue-table", cursor_type="row", zebra_stripes=True)
+        yield DataTable(id="issue-table", cursor_type="row", zebra_stripes=True, cell_padding=2)
         yield StatusBar()
 
     def on_mount(self) -> None:
