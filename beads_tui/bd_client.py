@@ -257,12 +257,16 @@ class BdClient:
         await self._run_bd(*args, parse_json=False)
 
     async def close_issue(self, *issue_ids: str, reason: str | None = None) -> None:
+        if not issue_ids:
+            raise ValueError("close_issue requires at least one issue ID")
         args: list[str] = ["close", *issue_ids]
         if reason:
             args += ["--reason", reason]
         await self._run_bd(*args, parse_json=False)
 
     async def delete_issue(self, *issue_ids: str) -> None:
+        if not issue_ids:
+            raise ValueError("delete_issue requires at least one issue ID")
         await self._run_bd("delete", *issue_ids, "--force", parse_json=False)
 
     async def reopen_issue(self, issue_id: str) -> None:
