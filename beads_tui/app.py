@@ -42,6 +42,14 @@ _STATUS_DISPLAY: dict[str, tuple[str, str]] = {
     "closed": ("Closed", "white on grey37"),
 }
 
+_TYPE_STYLES: dict[str, str] = {
+    "bug": "#ff6b6b",
+    "feature": "#89b4fa",
+    "task": "#a6e3a1",
+    "epic": "#cba6f7",
+    "chore": "#f9e2af",
+}
+
 
 def _styled(value: str, style: str) -> Text:
     return Text(value, style=style)
@@ -55,6 +63,13 @@ def _priority_cell(priority: int) -> Text:
 def _status_cell(status: str) -> Text:
     label, style = _STATUS_DISPLAY.get(status, (status, ""))
     return _styled(label, style)
+
+
+def _type_cell(issue_type: str) -> Text:
+    if not issue_type:
+        return Text("")
+    color = _TYPE_STYLES.get(issue_type.lower(), "#6c7086")
+    return Text(issue_type, style=color)
 
 
 def _title_cell(title: str, priority: int) -> Text:
@@ -105,7 +120,7 @@ AVAILABLE_COLUMNS: dict[str, ColumnDef] = {
     "id": ColumnDef(key="id", label="ID", getter=lambda i: _styled(i.id, "bold"), width=12),
     "priority": ColumnDef(key="priority", label="P", getter=lambda i: _priority_cell(i.priority), width=4),
     "status": ColumnDef(key="status", label="Status", getter=lambda i: _status_cell(i.status), width=10),
-    "type": ColumnDef(key="type", label="Type", getter=lambda i: Text(i.issue_type or ""), width=10),
+    "type": ColumnDef(key="type", label="Type", getter=lambda i: _type_cell(i.issue_type), width=10),
     "title": ColumnDef(key="title", label="Title", getter=lambda i: _title_cell(i.title, i.priority), width=None),
     "assignee": ColumnDef(key="assignee", label="Assignee", getter=lambda i: Text(i.assignee or ""), width=14),
     "updated": ColumnDef(key="updated", label="Updated", getter=lambda i: Text(_short_date(i.updated_at)), width=12),
@@ -115,7 +130,7 @@ AVAILABLE_COLUMNS: dict[str, ColumnDef] = {
     "last_comment": ColumnDef(key="last_comment", label="Latest Update", getter=lambda i: Text(""), width=None),
 }
 
-DEFAULT_COLUMNS = ["id", "priority", "status", "assignee", "title", "last_comment"]
+DEFAULT_COLUMNS = ["id", "priority", "status", "type", "assignee", "title", "last_comment"]
 
 
 # ---------------------------------------------------------------------------
