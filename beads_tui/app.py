@@ -993,10 +993,10 @@ class BeadsTuiApp(LiveReloadMixin, App):
         result = await self.push_screen_wait(StatusPicker(current=current))
         if result is not None:
             try:
-                for issue in issues:
-                    if result == "closed":
-                        await self.client.close_issue(issue.id)
-                    else:
+                if result == "closed":
+                    await self.client.close_issue(*(issue.id for issue in issues))
+                else:
+                    for issue in issues:
                         await self.client.update_issue(issue.id, status=result)
                 label = f"{result} set on {len(issues)} issues" if len(issues) > 1 else f"{result} set on {issues[0].id}"
                 self.notify(label)
