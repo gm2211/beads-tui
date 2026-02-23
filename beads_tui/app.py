@@ -117,12 +117,12 @@ class ColumnDef:
 
 
 AVAILABLE_COLUMNS: dict[str, ColumnDef] = {
-    "id": ColumnDef(key="id", label="ID", getter=lambda i: _styled(i.id, "bold"), width=10),
+    "id": ColumnDef(key="id", label="ID", getter=lambda i: _styled(i.id, "bold"), width=11),
     "priority": ColumnDef(key="priority", label="P", getter=lambda i: _priority_cell(i.priority), width=4),
-    "status": ColumnDef(key="status", label="Status", getter=lambda i: _status_cell(i.status), width=8),
-    "type": ColumnDef(key="type", label="Type", getter=lambda i: _type_cell(i.issue_type), width=8),
+    "status": ColumnDef(key="status", label="Status", getter=lambda i: _status_cell(i.status), width=9),
+    "type": ColumnDef(key="type", label="Type", getter=lambda i: _type_cell(i.issue_type), width=9),
     "title": ColumnDef(key="title", label="Title", getter=lambda i: _title_cell(i.title, i.priority), width=None),
-    "assignee": ColumnDef(key="assignee", label="Assignee", getter=lambda i: _styled(i.assignee or "", "bold"), width=14),
+    "assignee": ColumnDef(key="assignee", label="Assignee", getter=lambda i: _styled(i.assignee or "", "bold"), width=10),
     "updated": ColumnDef(key="updated", label="Updated", getter=lambda i: _styled(_short_date(i.updated_at), "bold"), width=12),
     "created": ColumnDef(key="created", label="Created", getter=lambda i: _styled(_short_date(i.created_at), "bold"), width=12),
     "labels": ColumnDef(key="labels", label="Labels", getter=lambda i: Text(", ".join(i.labels)), width=15),
@@ -463,7 +463,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
     def compose(self) -> ComposeResult:
         yield Header(icon="")
         yield FilterBar()
-        yield DataTable(id="issue-table", cursor_type="row", zebra_stripes=True, cell_padding=2)
+        yield DataTable(id="issue-table", cursor_type="row", zebra_stripes=True, cell_padding=1)
         yield StatusBar()
 
     def on_mount(self) -> None:
