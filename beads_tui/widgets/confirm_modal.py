@@ -45,7 +45,7 @@ class ConfirmModal(ModalScreen[bool | None]):
         margin: 0 1;
         min-width: 12;
     }
-    ConfirmModal > #confirm-dialog > #confirm-buttons > #btn-confirm {
+    ConfirmModal > #confirm-dialog > #confirm-buttons > #btn-delete {
         color: #ff6b6b;
     }
     """
@@ -65,7 +65,7 @@ class ConfirmModal(ModalScreen[bool | None]):
             yield Static(self._body, id="confirm-body", markup=True)
             with Horizontal(id="confirm-buttons"):
                 yield Button("Cancel", id="btn-cancel")
-                yield Button("Confirm", id="btn-confirm")
+                yield Button("Delete", id="btn-delete")
 
     def on_mount(self) -> None:
         self.query_one("#btn-cancel", Button).focus()
@@ -95,7 +95,7 @@ class ConfirmModal(ModalScreen[bool | None]):
                 focused.press()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "btn-confirm":
+        if event.button.id == "btn-delete":
             self.dismiss(True)
         else:
             self.dismiss(None)
