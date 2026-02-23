@@ -35,6 +35,7 @@ class CreateScreen(ModalScreen[dict | None]):
     BINDINGS = [
         Binding("escape", "cancel", "Cancel", show=True),
         Binding("ctrl+s", "submit", "Create", show=True),
+        Binding("enter", "try_submit", "Create", show=False),
     ]
 
     DEFAULT_CSS = """\
@@ -184,6 +185,12 @@ class CreateScreen(ModalScreen[dict | None]):
             "description": description,
         }
         self.dismiss(result)
+
+    def action_try_submit(self) -> None:
+        """Submit on Enter unless focus is on the description TextArea."""
+        if isinstance(self.focused, TextArea):
+            return
+        self.action_submit()
 
     @on(Button.Pressed, "#btn-cancel")
     def handle_cancel(self) -> None:

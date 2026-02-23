@@ -12,10 +12,44 @@ from textual.widgets import Button, Static
 class ConfirmModal(ModalScreen[bool | None]):
     """Modal asking the user to confirm or cancel a destructive action."""
 
+    DEFAULT_CSS = """
+    ConfirmModal {
+        align: center middle;
+    }
+    ConfirmModal > #confirm-dialog {
+        width: 50;
+        max-width: 80%;
+        height: auto;
+        padding: 1 2;
+        background: #1e1e2e;
+        border: double #ff8c00;
+    }
+    ConfirmModal > #confirm-dialog > #confirm-title {
+        width: 100%;
+        text-style: bold;
+        color: #ff8c00;
+        text-align: center;
+    }
+    ConfirmModal > #confirm-dialog > #confirm-body {
+        width: 100%;
+        color: #cdd6f4;
+    }
+    ConfirmModal > #confirm-dialog > #confirm-buttons {
+        width: 100%;
+        layout: horizontal;
+        content-align: center middle;
+    }
+    ConfirmModal > #confirm-dialog > #confirm-buttons > Button {
+        margin: 0 1;
+        min-width: 12;
+    }
+    """
+
     BINDINGS = [
         Binding("y", "confirm", "Confirm", priority=True),
         Binding("n", "cancel", "Cancel", priority=True),
         Binding("escape", "cancel", "Cancel", priority=True),
+        Binding("enter", "press_focused", "Enter", show=False, priority=True),
         Binding("h", "focus_previous", "Left", show=False, priority=True),
         Binding("l", "focus_next", "Right", show=False, priority=True),
         Binding("j", "focus_next", "Down", show=False, priority=True),
@@ -43,6 +77,11 @@ class ConfirmModal(ModalScreen[bool | None]):
             self.dismiss(True)
         else:
             self.dismiss(None)
+
+    def action_press_focused(self) -> None:
+        focused = self.focused
+        if isinstance(focused, Button):
+            focused.press()
 
     def action_confirm(self) -> None:
         self.dismiss(True)
