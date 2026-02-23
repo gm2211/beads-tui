@@ -23,7 +23,17 @@ HELP_TEXT = """\
   [bold]j / Down[/bold]    Move down
   [bold]k / Up[/bold]      Move up
   [bold]Enter[/bold]       Open issue detail
+  [bold]Space[/bold]       Toggle select row
+  [bold]V[/bold]           Select / deselect all visible
   [bold]Click header[/bold] Sort by column (click again to reverse)
+
+[bold underline]Quick Actions (List)[/bold underline]
+  [bold]p[/bold]           Change priority
+  [bold]s[/bold]           Change status
+  [bold]x[/bold]           Close issue
+  [bold]d[/bold]           Delete issue
+  [bold]i[/bold]           Toggle ID format
+  [bold]t[/bold]           Toggle tree view
 
 [bold underline]Columns & Sorting[/bold underline]
   [bold]o[/bold]           Sort picker
@@ -35,8 +45,10 @@ HELP_TEXT = """\
   [bold]s[/bold]           Change status
   [bold]a[/bold]           Change assignee
   [bold]e[/bold]           Edit title
-  [bold]d[/bold]           Edit description
-  [bold]C[/bold]           Add comment
+  [bold]D[/bold]           Edit description
+  [bold]d[/bold]           Delete issue
+  [bold]g[/bold]           Go to linked issue
+  [bold]x[/bold]           Delete comment
 
 [dim]Press Escape to close[/dim]"""
 
