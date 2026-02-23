@@ -16,6 +16,10 @@ class ConfirmModal(ModalScreen[bool | None]):
         Binding("y", "confirm", "Confirm", priority=True),
         Binding("n", "cancel", "Cancel", priority=True),
         Binding("escape", "cancel", "Cancel", priority=True),
+        Binding("h", "focus_previous", "Left", show=False, priority=True),
+        Binding("l", "focus_next", "Right", show=False, priority=True),
+        Binding("j", "focus_next", "Down", show=False, priority=True),
+        Binding("k", "focus_previous", "Up", show=False, priority=True),
     ]
 
     def __init__(self, title: str, body: str) -> None:
