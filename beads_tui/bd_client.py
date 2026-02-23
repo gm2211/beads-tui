@@ -278,8 +278,11 @@ class BdClient:
             return []
         return [Comment.from_dict(item) for item in data]
 
-    async def add_comment(self, issue_id: str, text: str) -> None:
-        await self._run_bd("comments", "add", issue_id, text, parse_json=False)
+    async def add_comment(self, issue_id: str, text: str, author: str | None = None) -> None:
+        args = ["comments", "add", issue_id, text]
+        if author:
+            args += ["--author", author]
+        await self._run_bd(*args, parse_json=False)
 
     async def delete_comment(self, comment_id: int) -> None:
         await self._run_bd(
