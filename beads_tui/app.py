@@ -69,7 +69,7 @@ def _type_cell(issue_type: str) -> Text:
     if not issue_type:
         return Text("")
     color = _TYPE_STYLES.get(issue_type.lower(), "#6c7086")
-    return Text(issue_type, style=color)
+    return Text(issue_type, style=f"bold {color}")
 
 
 def _title_cell(title: str, priority: int) -> Text:
@@ -117,14 +117,14 @@ class ColumnDef:
 
 
 AVAILABLE_COLUMNS: dict[str, ColumnDef] = {
-    "id": ColumnDef(key="id", label="ID", getter=lambda i: _styled(i.id, "bold"), width=16),
+    "id": ColumnDef(key="id", label="ID", getter=lambda i: _styled(i.id, "bold"), width=10),
     "priority": ColumnDef(key="priority", label="P", getter=lambda i: _priority_cell(i.priority), width=4),
-    "status": ColumnDef(key="status", label="Status", getter=lambda i: _status_cell(i.status), width=10),
-    "type": ColumnDef(key="type", label="Type", getter=lambda i: _type_cell(i.issue_type), width=10),
+    "status": ColumnDef(key="status", label="Status", getter=lambda i: _status_cell(i.status), width=8),
+    "type": ColumnDef(key="type", label="Type", getter=lambda i: _type_cell(i.issue_type), width=8),
     "title": ColumnDef(key="title", label="Title", getter=lambda i: _title_cell(i.title, i.priority), width=None),
-    "assignee": ColumnDef(key="assignee", label="Assignee", getter=lambda i: Text(i.assignee or ""), width=14),
-    "updated": ColumnDef(key="updated", label="Updated", getter=lambda i: Text(_short_date(i.updated_at)), width=12),
-    "created": ColumnDef(key="created", label="Created", getter=lambda i: Text(_short_date(i.created_at)), width=12),
+    "assignee": ColumnDef(key="assignee", label="Assignee", getter=lambda i: _styled(i.assignee or "", "bold"), width=14),
+    "updated": ColumnDef(key="updated", label="Updated", getter=lambda i: _styled(_short_date(i.updated_at), "bold"), width=12),
+    "created": ColumnDef(key="created", label="Created", getter=lambda i: _styled(_short_date(i.created_at), "bold"), width=12),
     "labels": ColumnDef(key="labels", label="Labels", getter=lambda i: Text(", ".join(i.labels)), width=15),
     "deps": ColumnDef(key="deps", label="Deps", getter=_deps_cell, width=8),
     "last_comment": ColumnDef(key="last_comment", label="Latest Update", getter=lambda i: Text(""), width=None),
@@ -568,7 +568,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         for idx, col_key in enumerate(self._active_columns):
             if col_key == "last_comment":
                 preview = self._last_comments.get(issue.id, "")
-                val = Text(preview, style="dim") if preview else Text("")
+                val = Text(preview, style="bold") if preview else Text("")
             elif col_key == "id" and self._strip_id_prefix:
                 val = _styled(_short_id(issue.id), "bold")
             elif col_key == "title" and self._tree_mode:
@@ -636,7 +636,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
                     # Update the cell in the table (include separator)
                     col_idx = self._active_columns.index("last_comment") if "last_comment" in self._active_columns else -1
                     try:
-                        cell_val = Text(preview, style="dim")
+                        cell_val = Text(preview, style="bold")
                         if col_idx > 0:
                             cell_val = Text.assemble(Text("\u2502 ", style="#44447a"), cell_val)
                         table.update_cell(
