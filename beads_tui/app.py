@@ -107,7 +107,7 @@ AVAILABLE_COLUMNS: dict[str, ColumnDef] = {
     "status": ColumnDef(key="status", label="Status", getter=lambda i: _status_cell(i.status), width=10),
     "type": ColumnDef(key="type", label="Type", getter=lambda i: Text(i.issue_type or ""), width=10),
     "title": ColumnDef(key="title", label="Title", getter=lambda i: _title_cell(i.title, i.priority), width=None),
-    "assignee": ColumnDef(key="assignee", label="Assignee", getter=lambda i: Text(i.assignee or i.owner or ""), width=14),
+    "assignee": ColumnDef(key="assignee", label="Assignee", getter=lambda i: Text(i.assignee or ""), width=14),
     "updated": ColumnDef(key="updated", label="Updated", getter=lambda i: Text(_short_date(i.updated_at)), width=12),
     "created": ColumnDef(key="created", label="Created", getter=lambda i: Text(_short_date(i.created_at)), width=12),
     "labels": ColumnDef(key="labels", label="Labels", getter=lambda i: Text(", ".join(i.labels)), width=15),
@@ -204,7 +204,7 @@ def _sort_key_for_column(col_key: str, issue: Issue) -> object:
     if col_key == "title":
         return issue.title.lower()
     if col_key == "assignee":
-        return (issue.assignee or issue.owner or "").lower()
+        return (issue.assignee or "").lower()
     if col_key == "updated":
         return issue.updated_at or ""
     if col_key == "created":
@@ -650,7 +650,6 @@ class BeadsTuiApp(LiveReloadMixin, App):
                 i for i in filtered
                 if q in i.title.lower()
                 or q in i.id.lower()
-                or q in (i.owner or "").lower()
                 or q in (i.assignee or "").lower()
                 or q in (i.issue_type or "").lower()
             ]

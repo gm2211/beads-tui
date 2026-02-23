@@ -498,14 +498,14 @@ class DetailScreen(Screen):
                 Text(f" {issue.issue_type} ", style="white on dark_magenta")
             )
 
-        assignee = issue.owner or issue.assignee
+        assignee = issue.assignee
         if assignee:
             self.query_one("#badge-assignee", Static).update(
                 Text(f" @{assignee} ", style="white on grey23")
             )
 
         # -- Fields panel --
-        assignee_val = issue.owner or issue.assignee or "\u2014"
+        assignee_val = issue.assignee or "\u2014"
         fields = {
             "assignee": ("Assignee", assignee_val),
             "type": ("Type", issue.issue_type or "\u2014"),
