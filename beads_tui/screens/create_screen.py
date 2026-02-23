@@ -6,6 +6,7 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.events import Key
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, Select, TextArea
 
@@ -35,7 +36,6 @@ class CreateScreen(ModalScreen[dict | None]):
     BINDINGS = [
         Binding("escape", "cancel", "Cancel", show=True),
         Binding("ctrl+s", "submit", "Create", show=True),
-        Binding("enter", "try_submit", "Create", show=False),
     ]
 
     DEFAULT_CSS = """\
@@ -186,11 +186,12 @@ class CreateScreen(ModalScreen[dict | None]):
         }
         self.dismiss(result)
 
-    def action_try_submit(self) -> None:
+    def on_key(self, event: Key) -> None:
         """Submit on Enter unless focus is on the description TextArea."""
-        if isinstance(self.focused, TextArea):
-            return
-        self.action_submit()
+        if event.key == "enter" and not isinstance(self.focused, (TextArea, Button, Select)):
+            event.prevent_default()
+            event.stop()
+            self.action_submit()
 
     @on(Button.Pressed, "#btn-cancel")
     def handle_cancel(self) -> None:

@@ -5,6 +5,7 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
+from textual.events import Key
 from textual.screen import ModalScreen
 from textual.widgets import Button, Static
 
@@ -47,14 +48,7 @@ class ConfirmModal(ModalScreen[bool | None]):
     """
 
     BINDINGS = [
-        Binding("y", "confirm", "Confirm", priority=True),
-        Binding("n", "cancel", "Cancel", priority=True),
         Binding("escape", "cancel", "Cancel", priority=True),
-        Binding("enter", "press_focused", "Enter", show=False, priority=True),
-        Binding("h", "focus_previous", "Left", show=False, priority=True),
-        Binding("l", "focus_next", "Right", show=False, priority=True),
-        Binding("j", "focus_next", "Down", show=False, priority=True),
-        Binding("k", "focus_previous", "Up", show=False, priority=True),
     ]
 
     def __init__(self, title: str, body: str) -> None:
@@ -73,19 +67,35 @@ class ConfirmModal(ModalScreen[bool | None]):
     def on_mount(self) -> None:
         self.query_one("#btn-cancel", Button).focus()
 
+    def on_key(self, event: Key) -> None:
+        if event.key in ("h", "left", "k", "up"):
+            event.prevent_default()
+            event.stop()
+            self.focus_previous()
+        elif event.key in ("l", "right", "j", "down", "tab"):
+            event.prevent_default()
+            event.stop()
+            self.focus_next()
+        elif event.key == "y":
+            event.prevent_default()
+            event.stop()
+            self.dismiss(True)
+        elif event.key in ("n",):
+            event.prevent_default()
+            event.stop()
+            self.dismiss(None)
+        elif event.key == "enter":
+            event.prevent_default()
+            event.stop()
+            focused = self.focused
+            if isinstance(focused, Button):
+                focused.press()
+
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "btn-confirm":
             self.dismiss(True)
         else:
             self.dismiss(None)
-
-    def action_press_focused(self) -> None:
-        focused = self.focused
-        if isinstance(focused, Button):
-            focused.press()
-
-    def action_confirm(self) -> None:
-        self.dismiss(True)
 
     def action_cancel(self) -> None:
         self.dismiss(None)
