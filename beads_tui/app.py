@@ -539,17 +539,24 @@ class BeadsTuiApp(LiveReloadMixin, App):
 
         remaining = usable - fixed_used
 
-        # Title = exactly longest title; last_comment gets ALL remaining space
-        # If terminal too narrow, shrink both proportionally but always fit
-        max_title = max((len(i.title) for i in self._filtered_issues), default=20)
+        # Title gets priority: minimum 30 chars and ~60% of flex space.
+        # last_comment gets ~40%. On very narrow terminals title still wins.
+        TITLE_MIN = 30
+        TITLE_FLEX = 0.60
+        COMMENT_FLEX = 0.40
+        COMMENT_MIN = 10
         flex_widths: dict[str, int] = {}
         if "title" in flex_keys and "last_comment" in flex_keys:
-            title_w = max(max_title, 10)
-            comment_w = remaining - title_w
-            if comment_w < 10:
-                # Not enough room — shrink title to make space for comment
-                title_w = max(remaining - 10, 10)
-                comment_w = max(remaining - title_w, 5)
+            # Ideal split: 60/40
+            title_ideal = max(int(remaining * TITLE_FLEX), TITLE_MIN)
+            comment_ideal = remaining - title_ideal
+            if comment_ideal < COMMENT_MIN:
+                # Terminal very narrow — give comment its minimum, title gets rest
+                comment_w = COMMENT_MIN
+                title_w = max(remaining - comment_w, TITLE_MIN)
+            else:
+                title_w = title_ideal
+                comment_w = comment_ideal
             flex_widths["title"] = title_w
             flex_widths["last_comment"] = comment_w
         elif flex_keys:
