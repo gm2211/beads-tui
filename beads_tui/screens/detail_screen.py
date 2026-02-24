@@ -202,7 +202,7 @@ class DetailScreen(Screen):
         Binding("x", "delete_comment", "Del comment"),
         Binding("o", "noop", "Sort", show=False),
         Binding("numbersign", "noop", "#Columns", show=False),
-        Binding("r", "noop", "Refresh", show=False),
+        Binding("r", "refresh_issue", "Refresh"),
         Binding("slash", "noop", "Search", show=False),
         Binding("c", "noop", "Create", show=False),
         Binding("A", "noop", "Toggle All", show=False),
@@ -690,6 +690,11 @@ class DetailScreen(Screen):
 
     def action_noop(self) -> None:
         pass
+
+    def action_refresh_issue(self) -> None:
+        """Reload issue data from backend."""
+        self._load_issue()
+        self.notify("Refreshing…")
 
     @work
     async def action_change_priority(self) -> None:

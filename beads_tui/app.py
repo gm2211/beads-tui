@@ -507,11 +507,22 @@ class BeadsTuiApp(LiveReloadMixin, App):
     # Column management
     # ------------------------------------------------------------------
 
-    def _col_width(self, col_key: str) -> int | None:
-        """Return the effective fixed width for a column, or None for flex."""
+    def _col_width(self, col_key: str, computed_widths: dict[str, int] | None = None) -> int | None:
+        """Return the effective fixed width for a column, or None for flex.
+
+        If *computed_widths* is provided (from content measurement in
+        _rebuild_columns), use the pre-computed value for non-flex columns
+        instead of the static ColumnDef.width.
+        """
         col_def = AVAILABLE_COLUMNS.get(col_key)
         if not col_def:
             return None
+        # Flex columns (title, last_comment) always return None so they absorb
+        # remaining space.
+        if col_def.width is None:
+            return None
+        if computed_widths and col_key in computed_widths:
+            return computed_widths[col_key]
         if col_key == "id" and self._strip_id_prefix:
             return 6
         return col_def.width
@@ -523,15 +534,60 @@ class BeadsTuiApp(LiveReloadMixin, App):
 
         total_width = table.size.width or self.size.width or 120
 
+        # ------------------------------------------------------------------
+        # Step 1: Measure actual content widths for each non-flex column.
+        # Flex columns (width=None in ColumnDef) are excluded — they absorb
+        # leftover space.
+        # ------------------------------------------------------------------
+        PADDING = 1  # extra chars added to each measured column
+
+        # Determine the first active non-flex column (needs +2 for "✓ " marker)
+        first_col_key: str | None = None
+        for col_key in self._active_columns:
+            col_def = AVAILABLE_COLUMNS.get(col_key)
+            if col_def and col_def.width is not None:
+                first_col_key = col_key
+                break
+        # If all columns are flex, the first column still gets the marker
+        if first_col_key is None and self._active_columns:
+            first_col_key = self._active_columns[0]
+
+        content_widths: dict[str, int] = {}
+        for col_key in self._active_columns:
+            col_def = AVAILABLE_COLUMNS.get(col_key)
+            if not col_def or col_def.width is None:
+                continue  # skip flex columns
+
+            # Start from the header label length
+            label_len = len(col_def.label)
+            # Account for the sort arrow appended to the header
+            if col_key == self._sort_column:
+                label_len += 2  # " ▲" or " ▼"
+            max_content = label_len
+
+            for issue in self._filtered_issues:
+                if col_key == "id" and self._strip_id_prefix:
+                    cell_len = len(_short_id(issue.id))
+                else:
+                    cell = col_def.getter(issue)
+                    cell_len = len(cell.plain) if isinstance(cell, Text) else len(str(cell))
+                max_content = max(max_content, cell_len)
+
+            # Add the selection marker width (2 chars "✓ ") to the first column
+            extra = 2 if col_key == first_col_key else 0
+            content_widths[col_key] = max_content + PADDING + extra
+
+        # ------------------------------------------------------------------
+        # Step 2: Tally fixed column widths; collect flex keys
+        # ------------------------------------------------------------------
         # Each non-first column has a 2-char separator prefix (│ )
         num_seps = max(len(self._active_columns) - 1, 0)
         usable = total_width - (num_seps * 2)
 
-        # Tally fixed column widths; collect flex keys
         fixed_used = 0
         flex_keys: list[str] = []
         for col_key in self._active_columns:
-            w = self._col_width(col_key)
+            w = self._col_width(col_key, content_widths)
             if w:
                 fixed_used += w
             else:
@@ -539,24 +595,26 @@ class BeadsTuiApp(LiveReloadMixin, App):
 
         remaining = usable - fixed_used
 
-        # Title gets priority: minimum 30 chars and ~60% of flex space.
-        # last_comment gets ~40%. On very narrow terminals title still wins.
-        TITLE_MIN = 30
-        TITLE_FLEX = 0.60
-        COMMENT_FLEX = 0.40
-        COMMENT_MIN = 10
+        # ------------------------------------------------------------------
+        # Step 3: Distribute remaining space to flex columns (title /
+        # last_comment).  Title is sized to the longest visible title;
+        # last_comment absorbs the rest.
+        # ------------------------------------------------------------------
+        max_title = max((len(i.title) for i in self._filtered_issues), default=20)
+        # Account for tree-mode prefix in title width measurement
+        if self._tree_mode and self._tree_prefixes:
+            max_title = max(
+                (len(self._tree_prefixes.get(i.id, "")) + len(i.title) for i in self._filtered_issues),
+                default=max_title,
+            )
         flex_widths: dict[str, int] = {}
         if "title" in flex_keys and "last_comment" in flex_keys:
-            # Ideal split: 60/40
-            title_ideal = max(int(remaining * TITLE_FLEX), TITLE_MIN)
-            comment_ideal = remaining - title_ideal
-            if comment_ideal < COMMENT_MIN:
-                # Terminal very narrow — give comment its minimum, title gets rest
-                comment_w = COMMENT_MIN
-                title_w = max(remaining - comment_w, TITLE_MIN)
-            else:
-                title_w = title_ideal
-                comment_w = comment_ideal
+            title_w = max(max_title, 10)
+            comment_w = remaining - title_w
+            if comment_w < 10:
+                # Not enough room — shrink title to make space for comment
+                title_w = max(remaining - 10, 10)
+                comment_w = max(remaining - title_w, 5)
             flex_widths["title"] = title_w
             flex_widths["last_comment"] = comment_w
         elif flex_keys:
@@ -564,6 +622,9 @@ class BeadsTuiApp(LiveReloadMixin, App):
             for k in flex_keys:
                 flex_widths[k] = even
 
+        # ------------------------------------------------------------------
+        # Step 4: Add columns to the DataTable
+        # ------------------------------------------------------------------
         for idx, col_key in enumerate(self._active_columns):
             col_def = AVAILABLE_COLUMNS.get(col_key)
             if not col_def:
@@ -573,7 +634,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
                 arrow = "\u25b2" if not self._sort_reverse else "\u25bc"
                 label = f"{label} {arrow}"
             # Content width (without separator)
-            content_w = self._col_width(col_key) or flex_widths.get(col_key, 20)
+            content_w = self._col_width(col_key, content_widths) or flex_widths.get(col_key, 20)
             if idx > 0:
                 label = f"\u2502 {label}"
                 content_w += 2  # separator is part of the column width
