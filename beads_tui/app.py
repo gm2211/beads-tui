@@ -893,16 +893,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         status_bar.total_count = len(self._issues)
         now = datetime.datetime.now().strftime("%H:%M:%S")
         status_bar.set_refresh_time(now)
-        has_filter = any(v is not None for v in self._current_filters.values())
-        status_bar.filter_active = has_filter
-        statuses = self._current_filters.get("statuses")
-        if statuses is None:
-            view = "All Issues"
-        else:
-            view = "Filtered"
-        status_bar.view_name = view
-        if self._selected_ids:
-            status_bar.view_name = f"{len(self._selected_ids)} selected"
+        status_bar.selected_count = len(self._selected_ids)
 
     # ------------------------------------------------------------------
     # Event handlers
