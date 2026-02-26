@@ -908,7 +908,8 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self.push_screen(DetailScreen(issue_id, prefetch=prefetch), callback=lambda _: self.resume_refresh())
 
     def action_help(self) -> None:
-        self.push_screen(HelpScreen())
+        self.pause_refresh()
+        self.push_screen(HelpScreen(), callback=lambda _: self.resume_refresh())
 
     def action_create(self) -> None:
         self.pause_refresh()
@@ -954,8 +955,10 @@ class BeadsTuiApp(LiveReloadMixin, App):
 
     def action_sort_picker(self) -> None:
         columns = {k: v.label for k, v in AVAILABLE_COLUMNS.items()}
+        self.pause_refresh()
 
         def _on_dismiss(result: tuple[str, bool] | None) -> None:
+            self.resume_refresh()
             if result is not None:
                 self._sort_column, self._sort_reverse = result
                 self._rebuild_columns()
@@ -1040,7 +1043,11 @@ class BeadsTuiApp(LiveReloadMixin, App):
             return
         from .widgets.priority_picker import PriorityPicker
         current = issues[0].priority if len(issues) == 1 else 2
-        result = await self.push_screen_wait(PriorityPicker(current=current))
+        self.pause_refresh()
+        try:
+            result = await self.push_screen_wait(PriorityPicker(current=current))
+        finally:
+            self.resume_refresh()
         if result is not None:
             try:
                 for issue in issues:
@@ -1059,7 +1066,11 @@ class BeadsTuiApp(LiveReloadMixin, App):
             return
         from .widgets.status_picker import StatusPicker
         current = issues[0].status if len(issues) == 1 else "open"
-        result = await self.push_screen_wait(StatusPicker(current=current))
+        self.pause_refresh()
+        try:
+            result = await self.push_screen_wait(StatusPicker(current=current))
+        finally:
+            self.resume_refresh()
         if result is not None:
             try:
                 if result == "closed":
@@ -1081,9 +1092,13 @@ class BeadsTuiApp(LiveReloadMixin, App):
             return
         if len(issues) > 1:
             from beads_tui.widgets.confirm_modal import ConfirmModal
-            confirmed = await self.push_screen_wait(
-                ConfirmModal("Bulk Close", f"Close [b]{len(issues)}[/b] issues?")
-            )
+            self.pause_refresh()
+            try:
+                confirmed = await self.push_screen_wait(
+                    ConfirmModal("Bulk Close", f"Close [b]{len(issues)}[/b] issues?")
+                )
+            finally:
+                self.resume_refresh()
             if not confirmed:
                 return
         try:
@@ -1105,7 +1120,11 @@ class BeadsTuiApp(LiveReloadMixin, App):
             msg = f"Permanently delete [b]{len(issues)}[/b] issues?\nThis cannot be undone."
         else:
             msg = f"Permanently delete [b]{issues[0].id}[/b]?\nThis cannot be undone."
-        confirmed = await self.push_screen_wait(ConfirmModal("Delete Issue", msg))
+        self.pause_refresh()
+        try:
+            confirmed = await self.push_screen_wait(ConfirmModal("Delete Issue", msg))
+        finally:
+            self.resume_refresh()
         if confirmed:
             try:
                 await self.client.delete_issue(*(i.id for i in issues))
