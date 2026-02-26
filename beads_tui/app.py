@@ -460,7 +460,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self._sort_reverse: bool = False
         self._quit_pending: bool = False
         self._strip_id_prefix: bool = False
-        self._tree_mode: bool = False
+        self._tree_mode: bool = True
         self._tree_prefixes: dict[str, str] = {}
         self._graph_data: list[dict] = []
         self._last_comments: dict[str, str] = {}  # issue_id -> latest comment preview
