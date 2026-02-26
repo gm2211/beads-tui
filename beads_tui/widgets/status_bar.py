@@ -48,6 +48,7 @@ class StatusBar(Widget):
     last_refresh: reactive[str] = reactive("")
     view_name: reactive[str] = reactive("Issues")
     filter_active: reactive[bool] = reactive(False)
+    worktree_name: reactive[str] = reactive("")
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="status-bar"):
@@ -59,6 +60,8 @@ class StatusBar(Widget):
         label = self.view_name
         if self.filter_active and "filter" not in label.lower():
             label += "  filtered"
+        if self.worktree_name:
+            label = f"[{self.worktree_name}] {label}"
         self.query_one("#status-left", Static).update(label)
 
     def _update_center(self) -> None:
@@ -89,6 +92,9 @@ class StatusBar(Widget):
         self._update_left()
 
     def watch_filter_active(self, value: bool) -> None:
+        self._update_left()
+
+    def watch_worktree_name(self, value: str) -> None:
         self._update_left()
 
     def set_refreshing(self) -> None:

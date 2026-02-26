@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import datetime
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -437,6 +438,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         Binding("d", "quick_delete", "Delete", show=False),
         Binding("i", "toggle_id_prefix", "Toggle ID", show=False),
         Binding("t", "toggle_tree", "Tree"),
+        Binding("w", "switch_worktree", "Worktrees"),
     ]
 
     def __init__(
@@ -469,6 +471,8 @@ class BeadsTuiApp(LiveReloadMixin, App):
             "priorities": None,
             "types": None,
         }
+        self._worktree_name: str = ""
+        self._worktree_path: str = ""
 
     def compose(self) -> ComposeResult:
         yield Header(icon="")
@@ -482,12 +486,17 @@ class BeadsTuiApp(LiveReloadMixin, App):
             self.client = BdClient(bd_path=self._bd_path, db_path=self._db_path)
         except BdError:
             self.client = None
+        # Detect current worktree
+        self._worktree_name, self._worktree_path = self._detect_worktree_info()
         # Discover .beads/ directory for file-watch live reload.
         self.WATCH_PATH = self._discover_watch_path()
         self._rebuild_columns()
         self._load_issues()
         self.start_live_reload()
         self.query_one("#issue-table", DataTable).focus()
+        # Set worktree name on status bar after mount
+        if self._worktree_name:
+            self.query_one(StatusBar).worktree_name = self._worktree_name
 
     @staticmethod
     def _discover_watch_path() -> Path | None:
@@ -498,6 +507,73 @@ class BeadsTuiApp(LiveReloadMixin, App):
             if candidate.is_dir():
                 return candidate
         return None
+
+    @staticmethod
+    def _detect_worktree_info() -> tuple[str, str]:
+        """Return (worktree_name, worktree_path) for the current directory.
+
+        The worktree_name is the basename of the toplevel git directory,
+        and worktree_path is its absolute path.
+        """
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode != 0:
+                return "", ""
+            current_toplevel = result.stdout.strip()
+            name = Path(current_toplevel).name
+            return name, current_toplevel
+        except Exception:
+            return "", ""
+
+    @staticmethod
+    def _list_all_worktrees() -> list[dict]:
+        """Return list of {name, path, branch, is_current} for all worktrees."""
+        try:
+            result = subprocess.run(
+                ["git", "worktree", "list", "--porcelain"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode != 0:
+                return []
+        except Exception:
+            return []
+
+        worktrees = []
+        current_toplevel = ""
+        try:
+            tl = subprocess.run(
+                ["git", "rev-parse", "--show-toplevel"],
+                capture_output=True, text=True, timeout=5
+            )
+            current_toplevel = tl.stdout.strip()
+        except Exception:
+            pass
+
+        current_wt: dict = {}
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if line.startswith("worktree "):
+                if current_wt:
+                    worktrees.append(current_wt)
+                path = line[len("worktree "):]
+                current_wt = {
+                    "name": Path(path).name,
+                    "path": path,
+                    "branch": "",
+                    "is_current": path == current_toplevel,
+                }
+            elif line.startswith("branch "):
+                branch = line[len("branch "):]
+                # strip refs/heads/ prefix
+                if branch.startswith("refs/heads/"):
+                    branch = branch[len("refs/heads/"):]
+                current_wt["branch"] = branch
+        if current_wt:
+            worktrees.append(current_wt)
+        return worktrees
 
     def _on_change_detected(self) -> None:
         """File watcher detected a write — do a full reload."""
@@ -1150,3 +1226,57 @@ class BeadsTuiApp(LiveReloadMixin, App):
         if not self._tree_mode:
             self._tree_prefixes = {}
         self._load_issues()
+
+    @work
+    async def action_switch_worktree(self) -> None:
+        """Open worktree picker and switch to the selected worktree."""
+        from .screens.worktree_picker import WorktreePicker
+
+        worktrees = self._list_all_worktrees()
+        if not worktrees:
+            self.notify("No worktrees found", severity="warning")
+            return
+
+        self.pause_refresh()
+        selected_path = await self.push_screen_wait(
+            WorktreePicker(worktrees, self._worktree_path)
+        )
+        self.resume_refresh()
+
+        if selected_path is None or selected_path == self._worktree_path:
+            return
+
+        # Find the selected worktree entry
+        selected_wt = next((wt for wt in worktrees if wt["path"] == selected_path), None)
+        if selected_wt is None:
+            return
+
+        # Switch to the new worktree context
+        self._worktree_path = selected_path
+        self._worktree_name = selected_wt["name"]
+
+        # The .beads/ database is shared across worktrees (lives in main repo).
+        # Update WATCH_PATH to point at the new worktree's .beads/ if it exists,
+        # otherwise fall back to walking up from the new path.
+        new_beads = Path(selected_path) / ".beads"
+        if new_beads.is_dir():
+            new_watch = new_beads
+        else:
+            # Walk up to find .beads/ from the selected worktree root
+            new_watch = None
+            for parent in [Path(selected_path), *Path(selected_path).parents]:
+                candidate = parent / ".beads"
+                if candidate.is_dir():
+                    new_watch = candidate
+                    break
+
+        # Restart live reload with new watch path
+        self.stop_live_reload()
+        self.WATCH_PATH = new_watch
+        self._last_snapshot = {}
+        self.start_live_reload()
+
+        # Reload data and update status bar
+        self._load_issues()
+        self.query_one(StatusBar).worktree_name = self._worktree_name
+        self.notify(f"Switched to worktree: {self._worktree_name}")
