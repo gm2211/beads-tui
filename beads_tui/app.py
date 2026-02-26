@@ -510,12 +510,9 @@ class BeadsTuiApp(LiveReloadMixin, App):
 
     @staticmethod
     def _detect_worktree_info() -> tuple[str, str]:
-        """Return (worktree_name, worktree_path) for the current directory.
-
-        The worktree_name is the basename of the toplevel git directory,
-        and worktree_path is its absolute path.
-        """
+        """Return (branch_name, worktree_path) for the current directory."""
         try:
+            # Get current worktree path
             result = subprocess.run(
                 ["git", "rev-parse", "--show-toplevel"],
                 capture_output=True, text=True, timeout=5
@@ -523,8 +520,18 @@ class BeadsTuiApp(LiveReloadMixin, App):
             if result.returncode != 0:
                 return "", ""
             current_toplevel = result.stdout.strip()
-            name = Path(current_toplevel).name
-            return name, current_toplevel
+
+            # Get current branch name
+            result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode != 0:
+                branch = Path(current_toplevel).name  # fallback to dir name
+            else:
+                branch = result.stdout.strip()
+
+            return branch, current_toplevel
         except Exception:
             return "", ""
 
@@ -573,6 +580,9 @@ class BeadsTuiApp(LiveReloadMixin, App):
                 current_wt["branch"] = branch
         if current_wt:
             worktrees.append(current_wt)
+        for wt in worktrees:
+            if wt["branch"]:
+                wt["name"] = wt["branch"]
         return worktrees
 
     def _on_change_detected(self) -> None:

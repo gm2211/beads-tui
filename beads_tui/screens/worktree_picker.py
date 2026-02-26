@@ -70,13 +70,10 @@ class WorktreePicker(ModalScreen[str | None]):
 
     def _make_label(self, wt: dict) -> str:
         name = wt.get("name", "")
-        branch = wt.get("branch", "")
         path = wt.get("path", "")
         is_current = wt.get("is_current", False)
 
         marker = "* " if is_current else "  "
-        if branch:
-            return f"{marker}{name}  [{branch}]  {path}"
         return f"{marker}{name}  {path}"
 
     def on_option_list_option_selected(
