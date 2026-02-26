@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -13,6 +14,11 @@ if TYPE_CHECKING:
 # We exclude these from change detection to avoid false positives when
 # the TUI itself runs ``bd list``.
 _NOMS_EPHEMERAL = frozenset({"journal.idx", "manifest", "LOCK"})
+
+# How long (seconds) a paused state is considered stale before we
+# force-resume.  This prevents permanently stuck pauses if a modal
+# callback never fires.
+_MAX_PAUSE_DURATION: float = 60.0
 
 
 def _find_write_markers(watch_path: Path) -> dict[str, float]:
@@ -72,15 +78,25 @@ class LiveReloadMixin:
 
     WATCH_PATH: Path | None = None
     WATCH_INTERVAL: float = 1.0      # seconds between mtime checks
-    FALLBACK_INTERVAL: float = 30.0  # safety-net full refresh
+    FALLBACK_INTERVAL: float = 10.0  # safety-net full refresh (reduced from 30s)
 
+    # These are declared as class-level defaults but are always set as
+    # instance attributes in start_live_reload / pause_refresh, so multiple
+    # instances of the mixin never share mutable state.
     _refresh_paused: bool = False
-    _watch_timer: Timer | None = None
-    _fallback_timer: Timer | None = None
-    _last_snapshot: dict[str, float] = {}
+    _pause_since: float = 0.0        # monotonic time when paused; 0 = not paused
+    _watch_timer: "Timer | None" = None
+    _fallback_timer: "Timer | None" = None
+    _last_snapshot: dict[str, float]
 
     def start_live_reload(self) -> None:
         """Start the file watcher and fallback poll timers."""
+        # Initialise instance-level mutable state so that class-level defaults
+        # are never mutated (important when multiple app instances exist).
+        self._refresh_paused = False
+        self._pause_since = 0.0
+        self._last_snapshot = {}
+
         if self.WATCH_PATH is not None:
             self._last_snapshot = _find_write_markers(self.WATCH_PATH)
             self._watch_timer = self.set_interval(  # type: ignore[attr-defined]
@@ -108,13 +124,31 @@ class LiveReloadMixin:
     def pause_refresh(self) -> None:
         """Pause refresh (e.g. when the user is editing)."""
         self._refresh_paused = True
+        self._pause_since = time.monotonic()
 
     def resume_refresh(self) -> None:
         """Resume refresh after editing."""
         self._refresh_paused = False
+        self._pause_since = 0.0
+
+    def _check_stale_pause(self) -> None:
+        """Force-resume if we have been paused for longer than _MAX_PAUSE_DURATION.
+
+        This is a safety net for cases where a modal's dismiss callback is
+        never called (e.g. an exception in the callback chain or a screen
+        push that fails silently), which would otherwise leave auto-refresh
+        permanently suspended.
+        """
+        if (
+            self._refresh_paused
+            and self._pause_since > 0.0
+            and (time.monotonic() - self._pause_since) > _MAX_PAUSE_DURATION
+        ):
+            self.resume_refresh()
 
     async def _check_files(self) -> None:
         """Compare write-marker snapshot; trigger refresh only on real changes."""
+        self._check_stale_pause()
         if self._refresh_paused or self.WATCH_PATH is None:
             return
         curr = _find_write_markers(self.WATCH_PATH)
@@ -124,6 +158,7 @@ class LiveReloadMixin:
 
     async def _do_fallback(self) -> None:
         """Unconditional refresh (fallback timer)."""
+        self._check_stale_pause()
         if self._refresh_paused:
             return
         if self.WATCH_PATH is not None:
