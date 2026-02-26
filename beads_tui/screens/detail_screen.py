@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
@@ -13,6 +14,23 @@ from rich.text import Text
 
 from ..bd_client import BdClient, BdError
 from ..models import Comment, Issue
+
+
+def _local_time(iso_str: str) -> str:
+    """Convert ISO 8601 UTC timestamp to local time display."""
+    if not iso_str:
+        return ""
+    try:
+        # Parse ISO 8601 (bd stores as UTC)
+        dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
+        # If naive (no timezone), assume UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        # Convert to local timezone
+        local_dt = dt.astimezone()
+        return local_dt.strftime("%Y-%m-%d %H:%M")
+    except (ValueError, TypeError):
+        return iso_str[:16] if iso_str else ""
 
 
 _PRIORITY_LABELS: dict[int, tuple[str, str]] = {
@@ -142,7 +160,7 @@ class CommentPicker(ModalScreen[int | None]):
             yield Label("Delete Comment", id="comment-picker-title")
             option_list = OptionList(id="comment-options")
             for comment in self._comments:
-                ts = comment.created_at[:16] if comment.created_at else ""
+                ts = _local_time(comment.created_at)
                 preview = (comment.text or "")[:60].replace("\n", " ")
                 display = f"{comment.author or 'unknown'}  {ts}  {preview}"
                 option_list.add_option(Option(display, id=str(comment.id)))
@@ -567,7 +585,7 @@ class DetailScreen(Screen):
             for i, comment in enumerate(self._comments):
                 if i > 0:
                     parts.append(Text("\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n", style="#333350"))
-                ts = comment.created_at[:16] if comment.created_at else ""
+                ts = _local_time(comment.created_at)
                 parts.append(Text(comment.author or "unknown", style="bold #89b4fa"))
                 parts.append(Text(f"  {ts}\n", style="#6c7086"))
                 # Wrap comment text at 80 chars
