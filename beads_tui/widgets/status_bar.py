@@ -12,7 +12,7 @@ from beads_tui import __version__
 
 
 class StatusBar(Widget):
-    """Bottom status bar showing view name, issue counts, and refresh time."""
+    """Bottom status bar showing worktree name, selected count, and refresh time."""
 
     DEFAULT_CSS = """
     StatusBar {
@@ -46,8 +46,7 @@ class StatusBar(Widget):
     issue_count: reactive[int] = reactive(0)
     total_count: reactive[int] = reactive(0)
     last_refresh: reactive[str] = reactive("")
-    view_name: reactive[str] = reactive("Issues")
-    filter_active: reactive[bool] = reactive(False)
+    selected_count: reactive[int] = reactive(0)
     worktree_name: reactive[str] = reactive("")
 
     def compose(self) -> ComposeResult:
@@ -57,11 +56,10 @@ class StatusBar(Widget):
             yield Static("", id="status-right")
 
     def _update_left(self) -> None:
-        label = self.view_name
-        if self.filter_active and "filter" not in label.lower():
-            label += "  filtered"
-        if self.worktree_name:
-            label = f"{self.worktree_name} | {label}"
+        label = self.worktree_name if self.worktree_name else ""
+        if self.selected_count > 0:
+            sel = f"{self.selected_count} selected"
+            label = f"{label} | {sel}" if label else sel
         self.query_one("#status-left", Static).update(label)
 
     def _update_center(self) -> None:
@@ -88,10 +86,7 @@ class StatusBar(Widget):
     def watch_last_refresh(self, value: str) -> None:
         self._update_right()
 
-    def watch_view_name(self, value: str) -> None:
-        self._update_left()
-
-    def watch_filter_active(self, value: bool) -> None:
+    def watch_selected_count(self, value: int) -> None:
         self._update_left()
 
     def watch_worktree_name(self, value: str) -> None:
