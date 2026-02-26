@@ -61,7 +61,7 @@ class StatusBar(Widget):
         if self.filter_active and "filter" not in label.lower():
             label += "  filtered"
         if self.worktree_name:
-            label = f"[{self.worktree_name}] {label}"
+            label = f"{self.worktree_name} | {label}"
         self.query_one("#status-left", Static).update(label)
 
     def _update_center(self) -> None:
