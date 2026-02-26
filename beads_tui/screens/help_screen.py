@@ -18,6 +18,7 @@ HELP_TEXT = """\
   [bold]r[/bold]           Refresh issues
   [bold]c[/bold]           Create new issue
   [bold]A[/bold]           Toggle show all / open only
+  [bold]w[/bold]           Switch worktree
 
 [bold underline]Issue List[/bold underline]
   [bold]j / Down[/bold]    Move down
