@@ -935,7 +935,11 @@ class DetailScreen(Screen):
             issues = await client.list_issues(all_=True)
         except BdError:
             issues = []
-        choices = [(issue.id, issue.title or "") for issue in issues]
+        choices = [
+            (issue.id, issue.title or "")
+            for issue in issues
+            if issue.status != "closed"
+        ]
         result = await self.app.push_screen_wait(
             ParentPickerModal(
                 current_parent=self._issue.parent or "",

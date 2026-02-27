@@ -181,7 +181,11 @@ class CreateScreen(ModalScreen[dict | None]):
             issues = await client.list_issues(all_=True)
         except BdError:
             return
-        self._parent_issues = [(issue.id, issue.title or "") for issue in issues]
+        self._parent_issues = [
+            (issue.id, issue.title or "")
+            for issue in issues
+            if issue.status != "closed"
+        ]
         self._parent_ids = {issue_id for issue_id, _ in self._parent_issues}
         self._update_parent_suggestions()
 
