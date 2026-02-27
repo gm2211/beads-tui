@@ -1077,6 +1077,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         if self.client is None:
             self.notify("No bd client available", severity="error")
             return
+        parent_id = (data.get("parent") or "").strip()
         try:
             new_id = await self.client.create_issue(
                 title=data["title"],
@@ -1084,10 +1085,20 @@ class BeadsTuiApp(LiveReloadMixin, App):
                 priority=data.get("priority"),
                 assignee=data.get("assignee"),
                 labels=data.get("labels"),
-                parent=data.get("parent"),
                 description=data.get("description"),
             )
-            self.notify(f"Created issue {new_id}", severity="information")
+            if parent_id:
+                try:
+                    await self.client.update_issue(new_id, parent=parent_id)
+                except BdError as e:
+                    self.notify(
+                        f"Created issue {new_id}, but failed to set parent: {e}",
+                        severity="warning",
+                    )
+                else:
+                    self.notify(f"Created issue {new_id}", severity="information")
+            else:
+                self.notify(f"Created issue {new_id}", severity="information")
             self._load_issues()
         except BdError as e:
             self.notify(f"Failed to create issue: {e}", severity="error")
