@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 from textual import on
+from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.events import Key
 from textual.screen import ModalScreen
-from textual.widgets import Button, Input, Label, Select, TextArea
+from textual.widgets import Button, Input, Label, OptionList, Select, TextArea
+from textual.widgets.option_list import Option
+
+from ..bd_client import BdClient, BdError
 
 
 # Options for the Type selector
@@ -28,6 +32,8 @@ PRIORITY_OPTIONS: list[tuple[str, str]] = [
     ("P3 - Low", "3"),
     ("P4 - Backlog", "4"),
 ]
+
+MAX_PARENT_SUGGESTIONS = 8
 
 
 class CreateScreen(ModalScreen[dict | None]):
@@ -78,6 +84,11 @@ class CreateScreen(ModalScreen[dict | None]):
 
     CreateScreen > #dialog Input {
         margin-bottom: 0;
+    }
+
+    CreateScreen > #dialog #parent-suggestions {
+        height: 6;
+        margin-bottom: 1;
     }
 
     CreateScreen > #dialog Select {
@@ -139,6 +150,7 @@ class CreateScreen(ModalScreen[dict | None]):
 
             yield Label("Parent", classes="field-label")
             yield Input(placeholder="Parent issue ID (optional)", id="parent-input")
+            yield OptionList(id="parent-suggestions")
 
             yield Label("Description", classes="field-label")
             yield TextArea(id="description-area")
@@ -152,6 +164,107 @@ class CreateScreen(ModalScreen[dict | None]):
     def action_cancel(self) -> None:
         """Dismiss the modal without creating an issue."""
         self.dismiss(None)
+
+    def on_mount(self) -> None:
+        self._parent_issues: list[tuple[str, str]] = []
+        self._parent_ids: set[str] = set()
+        parent_suggestions = self.query_one("#parent-suggestions", OptionList)
+        parent_suggestions.display = False
+        self._load_parent_issues()
+
+    @work(exclusive=True, group="parent-choices")
+    async def _load_parent_issues(self) -> None:
+        client: BdClient | None = getattr(self.app, "client", None)
+        if client is None:
+            return
+        try:
+            issues = await client.list_issues(all_=True)
+        except BdError:
+            return
+        self._parent_issues = [(issue.id, issue.title or "") for issue in issues]
+        self._parent_ids = {issue_id for issue_id, _ in self._parent_issues}
+        self._update_parent_suggestions()
+
+    def _matching_parent_issues(self, query: str) -> list[tuple[str, str]]:
+        needle = query.lower()
+        ranked: list[tuple[int, str, str]] = []
+        for issue_id, title in self._parent_issues:
+            issue_l = issue_id.lower()
+            title_l = title.lower()
+            if needle not in issue_l and needle not in title_l:
+                continue
+
+            score = 100
+            if issue_l == needle:
+                score = 0
+            elif issue_l.startswith(needle):
+                score = 10
+            elif title_l.startswith(needle):
+                score = 20
+            elif needle in title_l:
+                score = 30
+            else:
+                score = 40
+            ranked.append((score, issue_id, title))
+
+        ranked.sort(key=lambda item: (item[0], item[1]))
+        return [(issue_id, title) for _, issue_id, title in ranked[:MAX_PARENT_SUGGESTIONS]]
+
+    def _hide_parent_suggestions(self) -> None:
+        suggestions = self.query_one("#parent-suggestions", OptionList)
+        suggestions.clear_options()
+        suggestions.display = False
+
+    def _update_parent_suggestions(self) -> None:
+        parent_input = self.query_one("#parent-input", Input)
+        query = parent_input.value.strip()
+        suggestions = self.query_one("#parent-suggestions", OptionList)
+
+        if not query:
+            self._hide_parent_suggestions()
+            return
+
+        matches = self._matching_parent_issues(query)
+        suggestions.clear_options()
+        for issue_id, title in matches:
+            label = f"{issue_id}  {title}" if title else issue_id
+            suggestions.add_option(Option(label, id=issue_id))
+
+        suggestions.display = bool(matches)
+        if matches:
+            suggestions.highlighted = 0
+
+    def _apply_highlighted_parent_suggestion(self) -> bool:
+        suggestions = self.query_one("#parent-suggestions", OptionList)
+        if not suggestions.display or suggestions.option_count <= 0:
+            return False
+
+        highlighted = suggestions.highlighted if suggestions.highlighted is not None else 0
+        if highlighted >= suggestions.option_count:
+            highlighted = 0
+        option = suggestions.get_option_at_index(highlighted)
+        if option.id is None:
+            return False
+
+        parent_input = self.query_one("#parent-input", Input)
+        parent_input.value = str(option.id)
+        parent_input.cursor_position = len(parent_input.value)
+        self._hide_parent_suggestions()
+        return True
+
+    @on(Input.Changed, "#parent-input")
+    def _on_parent_changed(self) -> None:
+        self._update_parent_suggestions()
+
+    @on(OptionList.OptionSelected, "#parent-suggestions")
+    def _on_parent_suggestion_selected(self, event: OptionList.OptionSelected) -> None:
+        if event.option.id is None:
+            return
+        parent_input = self.query_one("#parent-input", Input)
+        parent_input.value = str(event.option.id)
+        parent_input.cursor_position = len(parent_input.value)
+        self._hide_parent_suggestions()
+        parent_input.focus()
 
     def action_submit(self) -> None:
         """Validate and submit the form."""
@@ -194,7 +307,33 @@ class CreateScreen(ModalScreen[dict | None]):
 
     def on_key(self, event: Key) -> None:
         """Submit on Enter unless focus is on the description TextArea."""
-        if event.key == "enter" and not isinstance(self.focused, (TextArea, Button, Select)):
+        focused = self.focused
+        parent_input = self.query_one("#parent-input", Input)
+        suggestions = self.query_one("#parent-suggestions", OptionList)
+
+        if focused is parent_input:
+            if event.key in ("down", "j") and suggestions.display and suggestions.option_count > 0:
+                suggestions.action_cursor_down()
+                event.prevent_default()
+                event.stop()
+                return
+            if event.key in ("up", "k") and suggestions.display and suggestions.option_count > 0:
+                suggestions.action_cursor_up()
+                event.prevent_default()
+                event.stop()
+                return
+            if (
+                event.key == "enter"
+                and suggestions.display
+                and suggestions.option_count > 0
+                and parent_input.value.strip() not in self._parent_ids
+            ):
+                if self._apply_highlighted_parent_suggestion():
+                    event.prevent_default()
+                    event.stop()
+                    return
+
+        if event.key == "enter" and not isinstance(focused, (TextArea, Button, Select, OptionList)):
             event.prevent_default()
             event.stop()
             self.action_submit()

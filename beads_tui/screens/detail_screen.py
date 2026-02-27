@@ -7,9 +7,9 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Footer, Label, OptionList, Static
+from textual.widgets import Button, Footer, Input, Label, OptionList, Static
 from textual.widgets.option_list import Option
-from textual import work
+from textual import on, work
 from rich.text import Text
 
 from ..bd_client import BdClient, BdError
@@ -116,6 +116,184 @@ class DependencyPicker(ModalScreen[str | None]):
 
     def action_cursor_up(self) -> None:
         self.query_one("#dep-options", OptionList).action_cursor_up()
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
+
+
+class ParentPickerModal(ModalScreen[str | None]):
+    """Pick parent issue by searching ID or title."""
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+        Binding("j", "cursor_down", "Down", show=False),
+        Binding("k", "cursor_up", "Up", show=False),
+    ]
+
+    DEFAULT_CSS = """
+    ParentPickerModal {
+        align: center middle;
+    }
+    ParentPickerModal > #parent-picker-dialog {
+        width: 76;
+        max-width: 92%;
+        height: auto;
+        max-height: 80%;
+        background: $surface;
+        border: tall $primary;
+        padding: 1 2;
+    }
+    ParentPickerModal > #parent-picker-dialog > #parent-picker-title {
+        text-align: center;
+        text-style: bold;
+        width: 100%;
+        margin-bottom: 1;
+    }
+    ParentPickerModal > #parent-picker-dialog > #parent-query {
+        margin-bottom: 1;
+    }
+    ParentPickerModal > #parent-picker-dialog > #parent-options {
+        height: 10;
+    }
+    ParentPickerModal > #parent-picker-dialog > #parent-buttons {
+        width: 100%;
+        height: auto;
+        align-horizontal: center;
+        margin-top: 1;
+    }
+    ParentPickerModal > #parent-picker-dialog > #parent-buttons Button {
+        margin: 0 1;
+        min-width: 10;
+    }
+    """
+
+    def __init__(
+        self,
+        current_parent: str,
+        issue_choices: list[tuple[str, str]],
+        current_issue_id: str,
+    ) -> None:
+        super().__init__()
+        self._current_parent = current_parent
+        self._issue_choices = [
+            (issue_id, title)
+            for issue_id, title in issue_choices
+            if issue_id != current_issue_id
+        ]
+        self._issue_ids = {issue_id for issue_id, _ in self._issue_choices}
+
+    def compose(self) -> ComposeResult:
+        with Vertical(id="parent-picker-dialog"):
+            yield Label("Set Parent", id="parent-picker-title")
+            yield Input(
+                value=self._current_parent,
+                placeholder="Type issue ID or title...",
+                id="parent-query",
+            )
+            yield OptionList(id="parent-options")
+            with Horizontal(id="parent-buttons"):
+                yield Button("Clear", id="parent-clear-btn")
+                yield Button("Save", variant="primary", id="parent-save-btn")
+                yield Button("Cancel", id="parent-cancel-btn")
+
+    def on_mount(self) -> None:
+        self._refresh_options()
+        self.query_one("#parent-query", Input).focus()
+
+    def _matching_issues(self, query: str) -> list[tuple[str, str]]:
+        needle = query.lower().strip()
+        ranked: list[tuple[int, str, str]] = []
+        for issue_id, title in self._issue_choices:
+            issue_l = issue_id.lower()
+            title_l = title.lower()
+            if needle and needle not in issue_l and needle not in title_l:
+                continue
+
+            score = 100
+            if not needle:
+                score = 50
+            elif issue_l == needle:
+                score = 0
+            elif issue_l.startswith(needle):
+                score = 10
+            elif title_l.startswith(needle):
+                score = 20
+            elif needle in title_l:
+                score = 30
+            else:
+                score = 40
+            ranked.append((score, issue_id, title))
+
+        ranked.sort(key=lambda item: (item[0], item[1]))
+        return [(issue_id, title) for _, issue_id, title in ranked[:10]]
+
+    def _refresh_options(self) -> None:
+        query = self.query_one("#parent-query", Input).value
+        options = self.query_one("#parent-options", OptionList)
+        matches = self._matching_issues(query)
+
+        options.clear_options()
+        for issue_id, title in matches:
+            label = f"{issue_id}  {title}" if title else issue_id
+            options.add_option(Option(label, id=issue_id))
+
+        if matches:
+            options.highlighted = 0
+
+    def _highlighted_issue_id(self) -> str | None:
+        options = self.query_one("#parent-options", OptionList)
+        if options.option_count <= 0:
+            return None
+        idx = options.highlighted if options.highlighted is not None else 0
+        if idx >= options.option_count:
+            idx = 0
+        option = options.get_option_at_index(idx)
+        return str(option.id) if option.id is not None else None
+
+    def _save(self) -> None:
+        raw = self.query_one("#parent-query", Input).value.strip()
+        if not raw:
+            self.dismiss("")
+            return
+        if raw in self._issue_ids:
+            self.dismiss(raw)
+            return
+        highlighted = self._highlighted_issue_id()
+        if highlighted:
+            self.dismiss(highlighted)
+            return
+        self.dismiss(raw)
+
+    @on(Input.Changed, "#parent-query")
+    def _on_query_changed(self) -> None:
+        self._refresh_options()
+
+    @on(Input.Submitted, "#parent-query")
+    def _on_query_submitted(self) -> None:
+        self._save()
+
+    @on(OptionList.OptionSelected, "#parent-options")
+    def _on_option_selected(self, event: OptionList.OptionSelected) -> None:
+        if event.option.id is not None:
+            self.dismiss(str(event.option.id))
+
+    @on(Button.Pressed, "#parent-clear-btn")
+    def _on_clear(self) -> None:
+        self.dismiss("")
+
+    @on(Button.Pressed, "#parent-save-btn")
+    def _on_save(self) -> None:
+        self._save()
+
+    @on(Button.Pressed, "#parent-cancel-btn")
+    def _on_cancel(self) -> None:
+        self.dismiss(None)
+
+    def action_cursor_down(self) -> None:
+        self.query_one("#parent-options", OptionList).action_cursor_down()
+
+    def action_cursor_up(self) -> None:
+        self.query_one("#parent-options", OptionList).action_cursor_up()
 
     def action_cancel(self) -> None:
         self.dismiss(None)
@@ -752,13 +930,21 @@ class DetailScreen(Screen):
     async def action_set_parent(self) -> None:
         if self._issue is None:
             return
-        from ..widgets.text_input_modal import TextInputModal
+        client: BdClient = self.app.client  # type: ignore[attr-defined]
+        try:
+            issues = await client.list_issues(all_=True)
+        except BdError:
+            issues = []
+        choices = [(issue.id, issue.title or "") for issue in issues]
         result = await self.app.push_screen_wait(
-            TextInputModal("Parent (blank to clear)", self._issue.parent or "")
+            ParentPickerModal(
+                current_parent=self._issue.parent or "",
+                issue_choices=choices,
+                current_issue_id=self._issue.id,
+            )
         )
         if result is not None:
             parent_id = result.strip()
-            client: BdClient = self.app.client  # type: ignore[attr-defined]
             try:
                 await client.update_issue(self._issue.id, parent=parent_id)
                 if parent_id:

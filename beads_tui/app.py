@@ -148,23 +148,44 @@ DEFAULT_COLUMNS = ["id", "priority", "status", "type", "assignee", "title", "las
 # Tree-view helpers
 # ---------------------------------------------------------------------------
 
-def _build_children_map(graph_data: list[dict]) -> dict[str, list[str]]:
-    """Build parent -> dependents adjacency from bd graph output."""
+def _build_dependents_map(graph_data: list[dict]) -> dict[str, list[str]]:
+    """Build blocker -> blocked adjacency from bd graph output."""
     children_map: dict[str, list[str]] = {}
     seen_edges: set[tuple[str, str]] = set()
 
     for entry in graph_data:
         deps = entry.get("Dependencies") or []
         for dep in deps:
-            parent_id = dep.get("depends_on_id", "")
-            child_id = dep.get("issue_id", "")
-            if not parent_id or not child_id:
+            blocker_id = dep.get("depends_on_id", "")
+            blocked_id = dep.get("issue_id", "")
+            if not blocker_id or not blocked_id:
                 continue
-            edge = (parent_id, child_id)
+            edge = (blocker_id, blocked_id)
             if edge in seen_edges:
                 continue
             seen_edges.add(edge)
-            children_map.setdefault(parent_id, []).append(child_id)
+            children_map.setdefault(blocker_id, []).append(blocked_id)
+
+    return children_map
+
+
+def _build_dependencies_map(graph_data: list[dict]) -> dict[str, list[str]]:
+    """Build blocked -> blocker adjacency from bd graph output."""
+    children_map: dict[str, list[str]] = {}
+    seen_edges: set[tuple[str, str]] = set()
+
+    for entry in graph_data:
+        deps = entry.get("Dependencies") or []
+        for dep in deps:
+            blocked_id = dep.get("issue_id", "")
+            blocker_id = dep.get("depends_on_id", "")
+            if not blocker_id or not blocked_id:
+                continue
+            edge = (blocked_id, blocker_id)
+            if edge in seen_edges:
+                continue
+            seen_edges.add(edge)
+            children_map.setdefault(blocked_id, []).append(blocker_id)
 
     return children_map
 
@@ -193,7 +214,9 @@ def _build_tree_order(
     Returns list of (issue, prefix) tuples where prefix contains
     tree-drawing characters (e.g. "├── ", "│   └── ").
     """
-    children_map = _build_children_map(graph_data)
+    # Tree view is oriented issue -> blockers so a blocked item appears above
+    # the issues blocking it.
+    children_map = _build_dependencies_map(graph_data)
     has_parent: set[str] = {
         child_id
         for child_ids in children_map.values()
@@ -862,7 +885,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         all_issue_ids = {i.id for i in self._issues}
         if root_id not in all_issue_ids:
             return None
-        children_map = _build_children_map(self._graph_data)
+        children_map = _build_dependents_map(self._graph_data)
         return _collect_descendants(root_id, children_map) & all_issue_ids
 
     def _apply_filters_and_sort(self) -> None:
