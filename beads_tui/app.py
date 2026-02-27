@@ -1089,10 +1089,10 @@ class BeadsTuiApp(LiveReloadMixin, App):
             )
             if parent_id:
                 try:
-                    await self.client.update_issue(new_id, parent=parent_id)
+                    await self.client.add_blocks_dependency(new_id, parent_id)
                 except BdError as e:
                     self.notify(
-                        f"Created issue {new_id}, but failed to set parent: {e}",
+                        f"Created issue {new_id}, but failed to link blocks relation: {e}",
                         severity="warning",
                     )
                 else:

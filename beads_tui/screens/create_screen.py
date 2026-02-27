@@ -148,8 +148,8 @@ class CreateScreen(ModalScreen[dict | None]):
             yield Label("Labels", classes="field-label")
             yield Input(placeholder="Comma-separated labels (optional)", id="labels-input")
 
-            yield Label("Parent", classes="field-label")
-            yield Input(placeholder="Parent issue ID (optional)", id="parent-input")
+            yield Label("Parent (will be blocked by new issue)", classes="field-label")
+            yield Input(placeholder="Parent issue ID or title (optional)", id="parent-input")
             yield OptionList(id="parent-suggestions")
 
             yield Label("Description", classes="field-label")

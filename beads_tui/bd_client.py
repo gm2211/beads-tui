@@ -308,6 +308,14 @@ class BdClient:
         await self._run_bd("label", "remove", issue_id, label, parse_json=False)
 
     # ------------------------------------------------------------------
+    # Dependencies
+    # ------------------------------------------------------------------
+
+    async def add_blocks_dependency(self, blocker_id: str, blocked_id: str) -> None:
+        """Create a dependency where blocker_id blocks blocked_id."""
+        await self._run_bd("dep", blocker_id, "--blocks", blocked_id, parse_json=False)
+
+    # ------------------------------------------------------------------
     # Graph
     # ------------------------------------------------------------------
 
