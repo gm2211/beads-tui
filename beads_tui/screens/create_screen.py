@@ -137,6 +137,9 @@ class CreateScreen(ModalScreen[dict | None]):
             yield Label("Labels", classes="field-label")
             yield Input(placeholder="Comma-separated labels (optional)", id="labels-input")
 
+            yield Label("Parent", classes="field-label")
+            yield Input(placeholder="Parent issue ID (optional)", id="parent-input")
+
             yield Label("Description", classes="field-label")
             yield TextArea(id="description-area")
 
@@ -169,11 +172,13 @@ class CreateScreen(ModalScreen[dict | None]):
         priority_select = self.query_one("#priority-select", Select)
         assignee_input = self.query_one("#assignee-input", Input)
         labels_input = self.query_one("#labels-input", Input)
+        parent_input = self.query_one("#parent-input", Input)
         description_area = self.query_one("#description-area", TextArea)
 
         assignee = assignee_input.value.strip() or None
         labels_raw = labels_input.value.strip()
         labels = [l.strip() for l in labels_raw.split(",") if l.strip()] if labels_raw else None
+        parent = parent_input.value.strip() or None
         description = description_area.text.strip() or None
 
         result = {
@@ -182,6 +187,7 @@ class CreateScreen(ModalScreen[dict | None]):
             "priority": str(priority_select.value),
             "assignee": assignee,
             "labels": labels,
+            "parent": parent,
             "description": description,
         }
         self.dismiss(result)

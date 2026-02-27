@@ -195,6 +195,7 @@ class DetailScreen(Screen):
         Binding("p", "change_priority", "Priority"),
         Binding("s", "change_status", "Status"),
         Binding("a", "change_assignee", "Assignee"),
+        Binding("P", "set_parent", "Parent", key_display="P"),
         Binding("e", "edit_title", "Edit title"),
         Binding("d", "delete_issue", "Delete"),
         Binding("D", "edit_description", "Description", key_display="D"),
@@ -414,7 +415,7 @@ class DetailScreen(Screen):
             with Horizontal(id="fields-panel"):
                 with Vertical(id="fields-left"):
                     yield Static("Details", id="details-title")
-                    for field_key in ("assignee", "type", "created", "updated", "labels", "due", "ref"):
+                    for field_key in ("assignee", "parent", "type", "created", "updated", "labels", "due", "ref"):
                         with Horizontal(classes="field-row"):
                             yield Static("", classes="field-label", id=f"fl-{field_key}")
                             yield Static("", classes="field-value", id=f"fv-{field_key}")
@@ -526,6 +527,7 @@ class DetailScreen(Screen):
         assignee_val = issue.assignee or "\u2014"
         fields = {
             "assignee": ("Assignee", assignee_val),
+            "parent": ("Parent", issue.parent or "\u2014"),
             "type": ("Type", issue.issue_type or "\u2014"),
             "created": ("Created", issue.created_at or "\u2014"),
             "updated": ("Updated", issue.updated_at or "\u2014"),
@@ -562,15 +564,15 @@ class DetailScreen(Screen):
         has_deps = bool(issue.dependencies or issue.dependents)
         if has_deps:
             if issue.dependencies:
-                linked_list.add_option(Option(Text("Blocks:", style="bold #6c7086"), disabled=True))
+                linked_list.add_option(Option(Text("Blocked by:", style="bold #6c7086"), disabled=True))
                 for dep in issue.dependencies:
                     dep_id = dep.id or (dep.depends_on_id if hasattr(dep, "depends_on_id") else dep.issue_id)
-                    linked_list.add_option(Option(self._dep_line_inline("\u2192", dep), id=dep_id))
+                    linked_list.add_option(Option(self._dep_line_inline("\u2190", dep), id=dep_id))
             if issue.dependents:
-                linked_list.add_option(Option(Text("Blocked by:", style="bold #6c7086"), disabled=True))
+                linked_list.add_option(Option(Text("Blocks:", style="bold #6c7086"), disabled=True))
                 for dep in issue.dependents:
                     dep_id = dep.id or (dep.issue_id if hasattr(dep, "issue_id") else dep.depends_on_id)
-                    linked_list.add_option(Option(self._dep_line_inline("\u2190", dep), id=dep_id))
+                    linked_list.add_option(Option(self._dep_line_inline("\u2192", dep), id=dep_id))
             linked_list.display = True
             linked_none.display = False
         else:
@@ -747,6 +749,27 @@ class DetailScreen(Screen):
                 self.notify(f"Error: {e}", severity="error")
 
     @work
+    async def action_set_parent(self) -> None:
+        if self._issue is None:
+            return
+        from ..widgets.text_input_modal import TextInputModal
+        result = await self.app.push_screen_wait(
+            TextInputModal("Parent (blank to clear)", self._issue.parent or "")
+        )
+        if result is not None:
+            parent_id = result.strip()
+            client: BdClient = self.app.client  # type: ignore[attr-defined]
+            try:
+                await client.update_issue(self._issue.id, parent=parent_id)
+                if parent_id:
+                    self.notify(f"Parent set to {parent_id}")
+                else:
+                    self.notify("Parent cleared")
+                self._load_issue()
+            except BdError as e:
+                self.notify(f"Error: {e}", severity="error")
+
+    @work
     async def action_edit_title(self) -> None:
         if self._issue is None:
             return
@@ -805,11 +828,11 @@ class DetailScreen(Screen):
         for dep in (self._issue.dependencies or []):
             dep_id = (dep.id or dep.depends_on_id) if hasattr(dep, "depends_on_id") else dep.id
             if dep_id:
-                deps_list.append(("\u2192", dep_id, f"\u2192 {dep_id}  {dep.title or ''}"))
+                deps_list.append(("\u2190", dep_id, f"\u2190 {dep_id}  {dep.title or ''}"))
         for dep in (self._issue.dependents or []):
             dep_id = (dep.id or dep.issue_id) if hasattr(dep, "issue_id") else dep.id
             if dep_id:
-                deps_list.append(("\u2190", dep_id, f"\u2190 {dep_id}  {dep.title or ''}"))
+                deps_list.append(("\u2192", dep_id, f"\u2192 {dep_id}  {dep.title or ''}"))
         if not deps_list:
             self.notify("No linked issues")
             return

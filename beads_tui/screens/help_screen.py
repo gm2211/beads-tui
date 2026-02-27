@@ -46,6 +46,7 @@ HELP_TEXT = """\
   [bold]p[/bold]           Change priority
   [bold]s[/bold]           Change status
   [bold]a[/bold]           Change assignee
+  [bold]P[/bold]           Set / clear parent
   [bold]e[/bold]           Edit title
   [bold]D[/bold]           Edit description
   [bold]d[/bold]           Delete issue

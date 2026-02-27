@@ -206,6 +206,7 @@ class BdClient:
         type_: str | None = None,
         assignee: str | None = None,
         labels: list[str] | None = None,
+        parent: str | None = None,
     ) -> str:
         """Create a new issue and return its ID."""
         args: list[str] = ["create", "--title", title, "--silent"]
@@ -219,6 +220,8 @@ class BdClient:
             args += ["--assignee", assignee]
         if labels:
             args += ["--labels", ",".join(labels)]
+        if parent is not None:
+            args += ["--parent", parent]
 
         output = await self._run_bd(*args, parse_json=False)
         return output.strip()
@@ -226,8 +229,8 @@ class BdClient:
     async def update_issue(self, issue_id: str, **kwargs: Any) -> None:
         """Update fields on an issue.
 
-        Supported kwargs: title, status, priority, assignee, description,
-        notes, labels (set-labels), type_.
+        Supported kwargs: title, status, priority, assignee, parent,
+        description, notes, labels (set-labels), type_.
         """
         args: list[str] = ["update", issue_id]
 
@@ -236,6 +239,7 @@ class BdClient:
             "status": "--status",
             "priority": "--priority",
             "assignee": "--assignee",
+            "parent": "--parent",
             "description": "--description",
             "notes": "--notes",
             "type_": "--type",

@@ -11,7 +11,7 @@ An interactive terminal user interface for the [Beads](https://github.com/stevey
 
 - **Issue list** with sortable columns, inline search, and multi-select filters (status, priority, type)
 - **Dependency focus mode** to scope the list to a selected issue and its dependent tasks
-- **Detail view** with editable fields, comments, and navigable linked issues
+- **Detail view** with editable fields (including parent), comments, and navigable linked issues
 - **Create issues** directly from the TUI with type, priority, assignee, labels
 - **Live reload** automatically refreshes when issues change on disk
 - **Vim-style navigation** (`hjkl`, `/` to search, `?` for help)
@@ -78,6 +78,7 @@ bdt --db-path /path/to/db                  # Custom database path
 | `p` | Change priority |
 | `s` | Change status |
 | `a` | Change assignee |
+| `P` | Set / clear parent |
 | `e` | Edit title |
 | `d` | Edit description |
 | `C` | Add comment |

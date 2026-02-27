@@ -1061,6 +1061,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
                 priority=data.get("priority"),
                 assignee=data.get("assignee"),
                 labels=data.get("labels"),
+                parent=data.get("parent"),
                 description=data.get("description"),
             )
             self.notify(f"Created issue {new_id}", severity="information")
