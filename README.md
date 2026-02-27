@@ -80,8 +80,9 @@ bdt --db-path /path/to/db                  # Custom database path
 | `a` | Change assignee |
 | `P` | Set / clear parent |
 | `e` | Edit title |
-| `d` | Edit description |
-| `C` | Add comment |
+| `D` | Edit description |
+| `d` | Delete issue |
+| `x` | Delete comment |
 | `g` | Go to linked issue |
 | `Escape` / `Enter` | Back to list |
 
