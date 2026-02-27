@@ -10,6 +10,7 @@ An interactive terminal user interface for the [Beads](https://github.com/stevey
 ## Features
 
 - **Issue list** with sortable columns, inline search, and multi-select filters (status, priority, type)
+- **Dependency focus mode** to scope the list to a selected issue and its dependent tasks
 - **Detail view** with editable fields, comments, and navigable linked issues
 - **Create issues** directly from the TUI with type, priority, assignee, labels
 - **Live reload** automatically refreshes when issues change on disk
@@ -58,6 +59,7 @@ bdt --db-path /path/to/db                  # Custom database path
 | `p` | Change priority |
 | `s` | Change status |
 | `x` | Close issue |
+| `f` | Focus selected issue + dependents |
 | `o` | Sort picker |
 | `#` | Toggle column visibility |
 | `A` | Toggle show all / open only |

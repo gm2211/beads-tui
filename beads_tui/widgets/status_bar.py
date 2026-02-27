@@ -48,6 +48,7 @@ class StatusBar(Widget):
     last_refresh: reactive[str] = reactive("")
     selected_count: reactive[int] = reactive(0)
     worktree_name: reactive[str] = reactive("")
+    focus_root_id: reactive[str] = reactive("")
 
     def compose(self) -> ComposeResult:
         with Horizontal(id="status-bar"):
@@ -56,11 +57,14 @@ class StatusBar(Widget):
             yield Static("", id="status-right")
 
     def _update_left(self) -> None:
-        label = self.worktree_name if self.worktree_name else ""
+        parts: list[str] = []
+        if self.worktree_name:
+            parts.append(self.worktree_name)
         if self.selected_count > 0:
-            sel = f"{self.selected_count} selected"
-            label = f"{label} | {sel}" if label else sel
-        self.query_one("#status-left", Static).update(label)
+            parts.append(f"{self.selected_count} selected")
+        if self.focus_root_id:
+            parts.append(f"focus: {self.focus_root_id}")
+        self.query_one("#status-left", Static).update(" | ".join(parts))
 
     def _update_center(self) -> None:
         if self.total_count and self.issue_count != self.total_count:
@@ -90,6 +94,9 @@ class StatusBar(Widget):
         self._update_left()
 
     def watch_worktree_name(self, value: str) -> None:
+        self._update_left()
+
+    def watch_focus_root_id(self, value: str) -> None:
         self._update_left()
 
     def set_refreshing(self) -> None:

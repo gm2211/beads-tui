@@ -148,6 +148,42 @@ DEFAULT_COLUMNS = ["id", "priority", "status", "type", "assignee", "title", "las
 # Tree-view helpers
 # ---------------------------------------------------------------------------
 
+def _build_children_map(graph_data: list[dict]) -> dict[str, list[str]]:
+    """Build parent -> dependents adjacency from bd graph output."""
+    children_map: dict[str, list[str]] = {}
+    seen_edges: set[tuple[str, str]] = set()
+
+    for entry in graph_data:
+        deps = entry.get("Dependencies") or []
+        for dep in deps:
+            parent_id = dep.get("depends_on_id", "")
+            child_id = dep.get("issue_id", "")
+            if not parent_id or not child_id:
+                continue
+            edge = (parent_id, child_id)
+            if edge in seen_edges:
+                continue
+            seen_edges.add(edge)
+            children_map.setdefault(parent_id, []).append(child_id)
+
+    return children_map
+
+
+def _collect_descendants(root_id: str, children_map: dict[str, list[str]]) -> set[str]:
+    """Collect root + all transitively dependent issues."""
+    seen: set[str] = set()
+    stack = [root_id]
+    while stack:
+        issue_id = stack.pop()
+        if issue_id in seen:
+            continue
+        seen.add(issue_id)
+        for child_id in children_map.get(issue_id, []):
+            if child_id not in seen:
+                stack.append(child_id)
+    return seen
+
+
 def _build_tree_order(
     issues: list[Issue],
     graph_data: list[dict],
@@ -157,17 +193,12 @@ def _build_tree_order(
     Returns list of (issue, prefix) tuples where prefix contains
     tree-drawing characters (e.g. "├── ", "│   └── ").
     """
-    children_map: dict[str, list[str]] = {}
-    has_parent: set[str] = set()
-
-    for entry in graph_data:
-        deps = entry.get("Dependencies") or []
-        for dep in deps:
-            parent_id = dep.get("depends_on_id", "")
-            child_id = dep.get("issue_id", "")
-            if parent_id and child_id:
-                children_map.setdefault(parent_id, []).append(child_id)
-                has_parent.add(child_id)
+    children_map = _build_children_map(graph_data)
+    has_parent: set[str] = {
+        child_id
+        for child_ids in children_map.values()
+        for child_id in child_ids
+    }
 
     issue_map: dict[str, Issue] = {i.id: i for i in issues}
     visible_ids = set(issue_map.keys())
@@ -437,6 +468,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         Binding("x", "quick_close", "Close", show=False),
         Binding("d", "quick_delete", "Delete", show=False),
         Binding("i", "toggle_id_prefix", "Toggle ID", show=False),
+        Binding("f", "toggle_dependency_focus", "Focus", show=False),
         Binding("t", "toggle_tree", "Tree"),
         Binding("w", "switch_worktree", "Worktrees"),
     ]
@@ -463,6 +495,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self._tree_mode: bool = True
         self._tree_prefixes: dict[str, str] = {}
         self._graph_data: list[dict] = []
+        self._dependency_focus_root_id: str | None = None
         self._last_comments: dict[str, str] = {}  # issue_id -> latest comment preview
         self._selected_ids: set[str] = set()
         self._current_filters: dict = {
@@ -769,12 +802,13 @@ class BeadsTuiApp(LiveReloadMixin, App):
             issues = await self.client.list_issues(all_=True)
         except BdError:
             issues = []
-        if self._tree_mode:
-            try:
-                self._graph_data = await self.client.graph_all()
-            except BdError:
-                self._graph_data = []
+        try:
+            self._graph_data = await self.client.graph_all()
+        except BdError:
+            self._graph_data = []
         self._issues = issues
+        if self._dependency_focus_root_id and self._dependency_focus_root_id not in {i.id for i in issues}:
+            self._dependency_focus_root_id = None
         self._selected_ids &= {i.id for i in issues}
         self._apply_filters_and_sort()
         self._rebuild_columns()
@@ -820,6 +854,17 @@ class BeadsTuiApp(LiveReloadMixin, App):
     # Filtering and sorting
     # ------------------------------------------------------------------
 
+    def _focused_issue_ids(self) -> set[str] | None:
+        """Return selected issue + transitive dependents when focus mode is on."""
+        root_id = self._dependency_focus_root_id
+        if not root_id:
+            return None
+        all_issue_ids = {i.id for i in self._issues}
+        if root_id not in all_issue_ids:
+            return None
+        children_map = _build_children_map(self._graph_data)
+        return _collect_descendants(root_id, children_map) & all_issue_ids
+
     def _apply_filters_and_sort(self) -> None:
         """Filter self._issues into self._filtered_issues and sort."""
         filtered = list(self._issues)
@@ -853,6 +898,11 @@ class BeadsTuiApp(LiveReloadMixin, App):
         types = f.get("types")
         if types is not None:
             filtered = [i for i in filtered if i.issue_type in types]
+
+        # Scope filter (selected issue + dependents)
+        focused_ids = self._focused_issue_ids()
+        if focused_ids is not None:
+            filtered = [i for i in filtered if i.id in focused_ids]
 
         # Sort or tree-order
         if self._tree_mode and self._graph_data:
@@ -894,6 +944,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         now = datetime.datetime.now().strftime("%H:%M:%S")
         status_bar.set_refresh_time(now)
         status_bar.selected_count = len(self._selected_ids)
+        status_bar.focus_root_id = self._dependency_focus_root_id or ""
 
     # ------------------------------------------------------------------
     # Event handlers
@@ -1218,6 +1269,33 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self._populate_table()
         label = "short" if self._strip_id_prefix else "full"
         self.notify(f"ID format: {label}")
+
+    def action_toggle_dependency_focus(self) -> None:
+        issue = self._get_selected_issue()
+        if issue is None:
+            if self._dependency_focus_root_id:
+                self._dependency_focus_root_id = None
+                self._apply_filters_and_sort()
+                self._rebuild_columns()
+                self._populate_table()
+                self._update_status_bar()
+                self.notify("Dependency focus cleared")
+            return
+
+        if self._dependency_focus_root_id == issue.id:
+            self._dependency_focus_root_id = None
+            self.notify("Dependency focus cleared")
+        else:
+            self._dependency_focus_root_id = issue.id
+            focused_ids = self._focused_issue_ids() or {issue.id}
+            dep_count = max(len(focused_ids) - 1, 0)
+            self.notify(f"Focused on {issue.id} and {dep_count} dependents")
+
+        self._selected_ids.clear()
+        self._apply_filters_and_sort()
+        self._rebuild_columns()
+        self._populate_table()
+        self._update_status_bar()
 
     def action_toggle_tree(self) -> None:
         self._tree_mode = not self._tree_mode

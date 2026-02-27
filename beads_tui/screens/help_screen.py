@@ -33,6 +33,7 @@ HELP_TEXT = """\
   [bold]s[/bold]           Change status
   [bold]x[/bold]           Close issue
   [bold]d[/bold]           Delete issue
+  [bold]f[/bold]           Focus selected + dependents
   [bold]i[/bold]           Toggle ID format
   [bold]t[/bold]           Toggle tree view
 
