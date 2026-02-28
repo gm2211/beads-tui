@@ -23,6 +23,13 @@ from .widgets.filter_bar import FilterBar
 from .widgets.status_bar import StatusBar
 
 
+# Textual DataTable hover events can render badly under some terminals/multiplexers
+# (ghost header rows on mouse movement). Keep list navigation keyboard-only.
+class _KeyboardOnlyDataTable(DataTable):
+    def _on_mouse_move(self, event) -> None:  # type: ignore[override]
+        event.stop()
+
+
 # ---------------------------------------------------------------------------
 # Priority / status display helpers
 # ---------------------------------------------------------------------------
@@ -534,7 +541,7 @@ class BeadsTuiApp(LiveReloadMixin, App):
         yield Header(icon="")
         all_statuses = {"open", "in_progress", "blocked", "deferred", "closed"}
         yield FilterBar(initial_statuses=all_statuses if self._show_all else None)
-        yield DataTable(
+        yield _KeyboardOnlyDataTable(
             id="issue-table",
             cursor_type="row",
             zebra_stripes=True,
