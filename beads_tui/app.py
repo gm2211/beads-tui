@@ -534,7 +534,14 @@ class BeadsTuiApp(LiveReloadMixin, App):
         yield Header(icon="")
         all_statuses = {"open", "in_progress", "blocked", "deferred", "closed"}
         yield FilterBar(initial_statuses=all_statuses if self._show_all else None)
-        yield DataTable(id="issue-table", cursor_type="row", zebra_stripes=True, cell_padding=1)
+        yield DataTable(
+            id="issue-table",
+            cursor_type="row",
+            zebra_stripes=True,
+            cell_padding=1,
+            show_row_labels=False,
+            header_height=1,
+        )
         yield StatusBar()
 
     def on_mount(self) -> None:
@@ -549,7 +556,9 @@ class BeadsTuiApp(LiveReloadMixin, App):
         self._rebuild_columns()
         self._load_issues()
         self.start_live_reload()
-        self.query_one("#issue-table", DataTable).focus()
+        table = self.query_one("#issue-table", DataTable)
+        table.mouse_hover = False
+        table.focus()
         # Set worktree name on status bar after mount
         if self._worktree_name:
             self.query_one(StatusBar).worktree_name = self._worktree_name

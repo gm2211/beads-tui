@@ -162,7 +162,23 @@ class BdClient:
         data = await self._run_bd(*args)
         if not data:
             return []
-        return [Issue.from_dict(item) for item in data]
+        issues: list[Issue] = []
+        for item in data:
+            if not isinstance(item, dict):
+                continue
+            issue = Issue.from_dict(item)
+            # Defensive guard for occasional malformed CLI output where a
+            # tabular header line is returned as a pseudo-row.
+            if (
+                issue.id.strip().lower() == "id"
+                and issue.status.strip().lower() == "status"
+                and issue.title.strip().lower() == "title"
+            ):
+                continue
+            if not issue.id:
+                continue
+            issues.append(issue)
+        return issues
 
     async def show_issue(self, issue_id: str) -> Issue:
         data = await self._run_bd("show", issue_id)
