@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bd sync 2>&1 && git push 2>&1)",
+      "Bash(git push:*)",
+      "Bash(git stash:*)",
+      "Read",
+      "Edit",
+      "Write",
+      "Bash(bd:*)",
+      "Bash(git:*)"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
+  },
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  }
+}
